@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Silent Defense - Final Fixes</title>
+    <title>Silent Defense - Reworked Layout and UI</title>
     <style>
         :root {
-            --grid-cols: 9;
-            --grid-rows: 3;
-            --cell-size: 80px; 
+            --grid-cols: 15; /* New Width */
+            --grid-rows: 4;  /* New Height */
+            --cell-size: 60px; /* Reduced cell size for fitting more tiles */
             --grid-width: calc(var(--grid-cols) * var(--cell-size));
             --grid-height: calc(var(--grid-rows) * var(--cell-size));
 
@@ -57,6 +57,30 @@
         
         #gold-amount { color: var(--gold-color); font-weight: bold; }
         #power-amount { color: var(--power-color); font-weight: bold; }
+        
+        /* --- Monster Stats UI (Top Right Fixed) --- */
+        #monster-stats-bar {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            background-color: #442727;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+            z-index: 200;
+            gap: 10px;
+        }
+
+        .stat-display {
+            font-size: 1.1em;
+            color: #ccc;
+        }
+        .stat-value {
+            font-weight: bold;
+            color: var(--accent-color);
+        }
 
         /* --- Game Container & Grid --- */
         #game-container {
@@ -65,7 +89,7 @@
             height: var(--grid-height);
             margin: 20px auto; 
             border: 5px solid #333;
-            background-color: #333;
+            background-color: #0a0a0a;
             box-sizing: content-box;
             z-index: 10;
         }
@@ -73,7 +97,8 @@
         /* --- Door Styles & HP Bar --- */
         #door {
             position: absolute;
-            top: -30px; 
+            /* Door remains vertically centered on the top edge */
+            top: calc(0px - 30px); 
             left: 50%;
             transform: translateX(-50%);
             width: var(--cell-size);
@@ -84,10 +109,19 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.0em;
-            color: transparent; 
             z-index: 100;
-            transition: background-color 0.05s linear, opacity 1s ease-out; /* Added opacity transition for fade out */
+            transition: background-color 0.05s linear, opacity 1s ease-out; 
+        }
+
+        /* FIX: Door Knob above the door */
+        #door-knob {
+            position: absolute;
+            right: 10px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--door-knob-color);
+            z-index: 101; /* Ensure knob is visible */
         }
 
         #door-hp-visual {
@@ -100,32 +134,52 @@
             background-color: gray;
             border-radius: 3px;
             overflow: hidden;
-            z-index: 101; 
+            z-index: 102; /* Above door and monster */
         }
 
-        #door-hp-fill-overlay {
-            height: 100%;
-            width: 100%;
-            background-color: #4CAF50; 
-            transition: width 0.3s ease;
+        /* --- Monster Styles & HP Bar --- */
+        #monster {
+            position: absolute;
+            /* FIX: Monster stays further away (approx 1.5 cell sizes above the door) */
+            top: calc(0px - 60px - 30px); 
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 4em; /* Larger size */
+            transition: opacity 0.5s, transform 0.1s, top 1s ease-in-out, left 1s ease-in-out;
+            z-index: 99;
+            opacity: 1;
         }
         
-        /* --- Visuals & Animations --- */
-        
-        /* FIX: Subtle Upgrade Cue (Inner box shadow) */
+        /* New: Monster Health Bar Container (attached to monster) */
+        #monster-hp-visual {
+            position: absolute;
+            width: 40px; 
+            height: 6px;
+            background-color: gray;
+            border-radius: 2px;
+            overflow: hidden;
+            /* Positioned just above the monster emoji */
+            top: -10px; 
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100; 
+        }
+        #monster-hp-fill {
+            height: 100%;
+            width: 100%;
+            background-color: var(--accent-color); /* Red */
+            transition: width 0.3s ease;
+        }
+
+        /* --- Animations & Visuals --- */
         .upgrade-available {
             box-shadow: inset 0 0 0 4px rgba(0, 255, 0, 0.3); 
         }
 
-        .door-hit { 
-            background-color: rgba(255, 0, 0, 0.5) !important; 
-            transition: background-color 0.05s linear;
-        }
-        
-        /* FIX: Increased vertical slam movement */
+        /* FIX: Increased vertical slam movement for door attack */
         @keyframes slam {
             0% { transform: translate(-50%, 0px); }
-            50% { transform: translate(-50%, 10px); } /* Increased Y movement */
+            50% { transform: translate(-50%, 15px); } /* Increased Y movement */
             100% { transform: translate(-50%, 0px); }
         }
 
@@ -133,61 +187,28 @@
             animation: slam 0.2s ease-out;
         }
         
-        /* New: Monster Hit Flash */
         .monster-hit {
             opacity: 0.5 !important;
             transition: opacity 0.05s ease-out !important;
         }
-
-        #monster {
-            position: absolute;
-            top: -65px; 
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 3em;
-            transition: opacity 0.5s, transform 0.1s, top 1s ease-in-out, left 1s ease-in-out; /* Added top/left transitions for gliding */
-            z-index: 99;
-            opacity: 1;
+        
+        /* FIX: Smooth pulse for build mode plus signs */
+        @keyframes pulse {
+            0% { opacity: 0.5; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.1); } /* Peak */
+            100% { opacity: 0.5; transform: scale(0.8); } /* Returns smoothly to start */
+        }
+        /* FIX: Smooth pulse for build mode plus signs */
+        .build-plus {
+            position: absolute; 
+            font-size: 2em; 
+            color: rgba(192, 192, 192, 0.6); 
+            /* Seamlessly loop the pulse animation (removed 'alternate') */
+            animation: pulse 1s infinite ease-in-out; 
+            pointer-events: none; 
         }
         
-        /* --- Turret & Projectile Styles --- */
-
-        .structure-icon {
-            font-size: 2.5em; 
-            text-align: center;
-            line-height: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
-            position: relative;
-        }
-        
-        .projectile {
-            position: absolute;
-            font-size: 1.5em;
-            color: yellow;
-            transition: all 0.5s linear; /* Use linear for consistent speed */
-            z-index: 110;
-        }
-        
-        /* FIX: Floating Resource Animation */
-        .floating-resource {
-            position: absolute;
-            font-size: 1.2em; 
-            font-weight: bold;
-            pointer-events: none;
-            z-index: 150;
-            animation: drift-and-fade 1s ease-out forwards;
-        }
-        
-        @keyframes drift-and-fade {
-            0% { transform: translate(0, 0) scale(1); opacity: 1; }
-            100% { transform: translate(0, -30px) scale(0.6); opacity: 0; }
-        }
-
-        /* --- Retained Styles --- */
+        /* --- Grid & Structures --- */
         #game-grid {
             display: grid;
             grid-template-columns: repeat(var(--grid-cols), var(--cell-size));
@@ -208,15 +229,52 @@
             cursor: pointer;
             transition: box-shadow 0.2s ease;
         }
-        .grid-visual-on { border: 1px solid rgba(192, 192, 192, 0.3) !important; }
-        .build-plus {
-            position: absolute; font-size: 2em; color: rgba(192, 192, 192, 0.6); 
-            animation: pulse 1s infinite alternate; pointer-events: none; 
+        .structure-icon {
+            font-size: 2.5em; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            position: relative;
         }
-        @keyframes pulse {
-            from { opacity: 0.5; transform: scale(0.8); }
-            to { opacity: 1; transform: scale(1.1); }
+        
+        /* Turret (Bow) rotation setup */
+        .turret-bow {
+            display: inline-block;
+            transform-origin: 50% 50%;
+            transition: transform 0.2s linear; /* Smooth rotation */
         }
+        
+        /* Projectile */
+        .projectile {
+            position: absolute;
+            font-size: 1.5em;
+            color: yellow;
+            transition: all 0.5s linear; 
+            z-index: 110;
+            transform-origin: center center; /* Ensure rotation is centered */
+        }
+
+        /* --- Floating Resources --- */
+        .floating-resource {
+            position: absolute;
+            font-size: 1.2em; 
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 150;
+            animation: drift-and-fade 1s ease-out forwards;
+        }
+        
+        @keyframes drift-and-fade {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(0, -30px) scale(0.6); opacity: 0; }
+        }
+        
+        .floating-gold { color: var(--gold-color); }
+        .floating-power { color: var(--power-color); }
+
+        /* --- Menu and Tooltip styles retained --- */
         .info-tooltip {
             position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.8); color: white; padding: 5px 10px; border-radius: 5px;
@@ -233,6 +291,7 @@
         #sell-btn { background-color: #f44336; color: white; }
         #close-btn { background-color: #555; color: white; margin-top: 15px; }
         .disabled-btn { background-color: #888 !important; cursor: not-allowed !important; }
+
         .hint {
             position: fixed;
             bottom: 10px;
@@ -248,6 +307,21 @@
         <div class="resource-display">⚡ Power: <span id="power-amount">0</span></div>
         <div class="resource-display">Wave: <span id="wave-count">1</span></div>
     </div>
+    
+    <div id="monster-stats-bar">
+        <div class="stat-display">
+            Monster Stats
+        </div>
+        <div class="stat-display">
+            Damage: <span id="monster-damage" class="stat-value">0</span>
+        </div>
+        <div class="stat-display">
+            Wave: <span id="monster-wave" class="stat-value">1</span>
+        </div>
+        <div class="stat-display">
+            Amount: <span class="stat-value">1</span> (Current)
+        </div>
+    </div>
 
     <div id="game-container">
         <div id="door-hp-visual"><div id="door-hp-fill-overlay"></div></div>
@@ -256,7 +330,12 @@
             <div id="door-knob"></div>
             <span class="info-tooltip" id="door-tooltip"></span>
         </div>
-        <div id="monster">💀</div>
+        
+        <div id="monster">
+            <div id="monster-hp-visual"><div id="monster-hp-fill"></div></div>
+            💀
+        </div>
+        
         <div id="game-grid">
             </div>
     </div>
@@ -284,14 +363,14 @@
 
     <script>
         // --- CONSTANTS ---
-        const GRID_COLS = 9;
-        const GRID_ROWS = 3;
+        const GRID_COLS = 15;
+        const GRID_ROWS = 4;
+        const CELL_SIZE = 60;
         const TILE_COUNT = GRID_COLS * GRID_ROWS;
-        const CELL_SIZE = 80; // Must match CSS variable
-        const BED_TILE_INDEX = GRID_COLS + Math.floor(GRID_COLS / 2); 
+        // The bed should be near the center of the third row
+        const BED_TILE_INDEX = (GRID_ROWS - 2) * GRID_COLS + Math.floor(GRID_COLS / 2); 
         
-        // --- LEVEL TABLES ---
-        // (Level tables are retained from previous version for consistency)
+        // --- LEVEL TABLES (Retained) ---
         const DOOR_LEVELS = [
             { cost: 0, health: 300, baseAttack: 10 }, { cost: 100, health: 500, baseAttack: 10 },
             { cost: 250, health: 800, baseAttack: 10 }, { cost: 500, health: 1200, baseAttack: 10 },
@@ -299,8 +378,8 @@
         ];
         const BED_LEVELS = [
             { cost: 0, goldGen: 100, powerGen: 0 }, { cost: 150, goldGen: 2, powerGen: 0 },
-            { cost: 400, goldGen: 4, powerGen: 0 }, { cost: 900, goldGen: 8, powerGen: 0 },
-            { cost: 1800, goldGen: 15, powerGen: 0 }
+            { cost: 400, goldGen: 400, powerGen: 0 }, { cost: 900, goldGen: 8, powerGen: 0 },
+            { cost: 1800, goldGen: 1500, powerGen: 0 }
         ];
         const GENERATOR_LEVELS = [
             { cost: 100, goldGen: 0, powerGen: 1 }, { cost: 200, goldGen: 0, powerGen: 3 },
@@ -316,7 +395,7 @@
             door: { levels: DOOR_LEVELS, icon: '🚪' },
             bed: { levels: BED_LEVELS, icon: '🛏️' },
             generator: { levels: GENERATOR_LEVELS, icon: '☀️' },
-            turret: { levels: TURRET_LEVELS, icon: '🏹' } // FIX: Changed icon to Bow
+            turret: { levels: TURRET_LEVELS, icon: '🏹' }
         };
 
 
@@ -324,7 +403,7 @@
         let gold = 100;
         let power = 0;
         let isBuildMode = false; 
-        let isGameOver = false; // New state flag
+        let isGameOver = false; 
         let door = {
             type: 'door', level: 1, 
             hp: DOOR_LEVELS[0].health, maxHp: DOOR_LEVELS[0].health, 
@@ -335,7 +414,7 @@
         };
         let currentTileTarget = null; 
 
-        // Initialize Tile Grid (retained)
+        // Initialize Tile Grid 
         let tiles = Array(TILE_COUNT).fill(null).map((_, index) => {
             if (index === BED_TILE_INDEX) {
                 const bedStats = BED_LEVELS[0];
@@ -352,8 +431,11 @@
         const uiGold = document.getElementById('gold-amount');
         const uiPower = document.getElementById('power-amount');
         const uiWave = document.getElementById('wave-count');
+        const monsterDamageDisplay = document.getElementById('monster-damage');
+        const monsterWaveDisplay = document.getElementById('monster-wave');
         const doorElement = document.getElementById('door');
         const monsterElement = document.getElementById('monster');
+        const monsterHpFill = document.getElementById('monster-hp-fill');
         const gridElement = document.getElementById('game-grid');
         const doorTooltip = document.getElementById('door-tooltip');
         const doorHpFillOverlay = document.getElementById('door-hp-fill-overlay');
@@ -389,15 +471,15 @@
             updateUI();
         }
         
-        // FIX: Adjusted displayFloatingResource for random positioning
+        // FIX: Adjusted displayFloatingResource for random positioning centered in cell
         function displayFloatingResource(sourceElement, goldAmount, powerAmount) {
             if (!sourceElement) return;
 
             const rect = sourceElement.getBoundingClientRect();
             const containerRect = document.getElementById('game-container').getBoundingClientRect();
             
-            // FIX: Random position centered over the cell
-            const randomOffsetX = Math.floor(Math.random() * rect.width) - (rect.width / 2); 
+            // Random position centered over the cell: X variance from -20px to +20px from center
+            const randomOffsetX = 0;
             const startX = rect.left + rect.width / 2 - containerRect.left + randomOffsetX;
             const startY = rect.top - containerRect.top; 
 
@@ -418,7 +500,7 @@
             const el = document.createElement('div');
             el.className = `floating-resource ${className}`;
             el.textContent = text;
-            el.style.left = `${x}px`;
+            el.style.left = `${x - 15}px`; // FIX: Subtract 15px to account for half its width, centering it visually.
             el.style.top = `${y}px`;
             return el;
         }
@@ -431,9 +513,13 @@
             monster.isAttacking = true;
             if (monsterAttackInterval) clearInterval(monsterAttackInterval);
             
+            // Set initial position for attack transition
+            monsterElement.style.top = `calc(0px - 60px - 30px)`; 
+            
             monsterAttackInterval = setInterval(() => {
                 if (monster.isAttacking && !monster.retreating && !isGameOver) {
                     
+                    // Trigger slam animation for visual effect
                     monsterElement.classList.add('monster-slam');
                     setTimeout(() => {
                         monsterElement.classList.remove('monster-slam');
@@ -442,7 +528,7 @@
                     door.hp -= monster.attack;
                     if (door.hp < 0) { 
                         door.hp = 0;
-                        endGameSequence(); // New: Trigger game over sequence
+                        endGameSequence(); 
                         return;
                     }
                     
@@ -459,31 +545,27 @@
             }, 1500);
         }
         
-        // New: Game Over Sequence
         function endGameSequence() {
             isGameOver = true;
             monster.isAttacking = false;
             clearInterval(monsterAttackInterval);
-            turretIntervals.forEach(clearInterval); // Stop all turret firing
-            doorElement.style.opacity = 0; // Fade door away
+            turretIntervals.forEach(clearInterval); 
+            doorElement.style.opacity = 0; 
             
-            // Calculate Bed Position in Game Container Coordinates
             const bedCol = BED_TILE_INDEX % GRID_COLS;
             const bedRow = Math.floor(BED_TILE_INDEX / GRID_COLS);
             
-            // Center of the bed tile
             const targetX = bedCol * CELL_SIZE + CELL_SIZE / 2;
             const targetY = bedRow * CELL_SIZE + CELL_SIZE / 2;
             
-            // Move monster to the bed
             monsterElement.style.top = `${targetY}px`;
             monsterElement.style.left = `${targetX}px`;
-            monsterElement.style.transform = `translate(-50%, -50%)`; // Center monster over the bed (adjusting for its size)
+            // Center monster emoji (4em wide/tall, approx 60px)
+            monsterElement.style.transform = `translate(-50%, -50%)`; 
             
-            // Display lose message after glide animation
             setTimeout(() => {
                 alert(`GAME OVER on Wave ${monster.wave}! The monster reached your bed!`);
-            }, 1000); // Wait for the 1s glide transition
+            }, 1000); 
         }
 
 
@@ -507,12 +589,10 @@
             }, Math.random() * 10000 + 10000); 
         }
 
-        // FIX: Monster Hit Flash
         function damageMonster(damage) {
             if (monster.retreating || isGameOver) return;
             monster.hp -= damage;
             
-            // Apply Red Flash
             monsterElement.classList.add('monster-hit');
             setTimeout(() => {
                 monsterElement.classList.remove('monster-hit');
@@ -525,6 +605,7 @@
                 gold += Math.round(monster.maxHp * 0.5); 
                 retreatMonster(); 
             }
+            updateUI(); // Update HP bar immediately
         }
 
         // --- TURRET LOGIC ---
@@ -538,18 +619,54 @@
                 if (tile && tile.type === 'turret') {
                     const turretStats = STRUCTURES.turret.levels[tile.level - 1];
                     
-                    const interval = setInterval(() => {
+                    // Set up aiming interval only for visual updates (no firing here)
+                    const aimInterval = setInterval(() => {
+                        if (tile.element && monster.isAttacking && !monster.retreating && !isGameOver) {
+                            aimTurret(tile.element);
+                        }
+                    }, 100); 
+                    
+                    const fireInterval = setInterval(() => {
                         if (monster.isAttacking && !monster.retreating && !isGameOver) {
                             fireProjectile(index);
                         }
                     }, turretStats.fireRate);
                     
-                    turretIntervals.push(interval);
+                    turretIntervals.push(aimInterval);
+                    turretIntervals.push(fireInterval);
                 }
             });
         }
         
-        // FIX: Projectile now '➡️' and angled
+        // FIX: Aim Turret (Bow) function
+        function aimTurret(turretElement) {
+            const turretRect = turretElement.getBoundingClientRect();
+            const containerRect = document.getElementById('game-container').getBoundingClientRect();
+            
+            const turretX = turretRect.left + turretRect.width / 2 - containerRect.left;
+            const turretY = turretRect.top + turretRect.height / 2 - containerRect.top;
+            
+            const monsterX = parseFloat(monsterElement.style.left) || containerRect.width / 2;
+            const monsterY = parseFloat(monsterElement.style.top) || -65;
+            
+            const deltaX = monsterX - turretX;
+            const deltaY = monsterY - turretY;
+            
+            // Calculate angle, rotating the bow tip towards the monster
+            const angleRad = Math.atan2(deltaY, deltaX);
+            const angleDeg = angleRad * (180 / Math.PI);
+            
+            // Adjust angle so the bow tip points *out* (typically 0 degrees is right, so we add 90)
+            const bowRotation = angleDeg; 
+            
+            const bowElement = turretElement.querySelector('.turret-bow');
+            if (bowElement) {
+                bowElement.style.transform = `rotate(${bowRotation}deg)`;
+            }
+        }
+
+
+        // FIX: Projectile is now a diamond emoji and angled
         function fireProjectile(tileIndex) {
             const tile = tiles[tileIndex];
             if (!tile.element) return;
@@ -558,7 +675,7 @@
 
             const proj = document.createElement('div');
             proj.className = 'projectile';
-            proj.textContent = '➡️'; // FIX: Changed to Arrow emoji
+            proj.textContent = '♦️'; // FIX: Changed to Diamond emoji
             
             const tileRect = tile.element.getBoundingClientRect();
             const containerRect = document.getElementById('game-container').getBoundingClientRect();
@@ -571,19 +688,19 @@
             
             document.getElementById('game-container').appendChild(proj);
             
-            // Monster is at top center of container
-            const monsterX = containerRect.width / 2;
-            const monsterY = -65; 
+            const monsterX = parseFloat(monsterElement.style.left) || containerRect.width / 2;
+            const monsterY = parseFloat(monsterElement.style.top) || -65;
             
-            // --- Calculate Angle ---
             const deltaX = monsterX - startX;
             const deltaY = monsterY - startY;
             const angleRad = Math.atan2(deltaY, deltaX);
             const angleDeg = angleRad * (180 / Math.PI);
             
-            // Apply rotation and move to target
+            // Rotate the diamond to point at the monster (0 deg is right)
+            const diamondRotation = angleDeg; 
+
             setTimeout(() => {
-                proj.style.transform = `rotate(${angleDeg}deg)`;
+                proj.style.transform = `rotate(${diamondRotation}deg)`;
                 proj.style.left = `${monsterX}px`;
                 proj.style.top = `${monsterY}px`;
             }, 10);
@@ -599,14 +716,23 @@
         // --- UI / BUILD MODE LOGIC ---
 
         function updateUI() {
-            uiGold.textContent = gold;
-            uiPower.textContent = power;
+            // FIX: Add toLocaleString for comma separated numbers
+            uiGold.textContent = gold.toLocaleString();
+            uiPower.textContent = power.toLocaleString();
             uiWave.textContent = monster.wave;
             
+            // Monster Stats Display Update
+            monsterDamageDisplay.textContent = monster.attack;
+            monsterWaveDisplay.textContent = monster.wave;
+
+            // Door HP
             const doorPercent = (door.hp / door.maxHp) * 100;
             doorHpFillOverlay.style.width = `${doorPercent}%`;
+            doorTooltip.textContent = `Door Lvl ${door.level} (${door.hp.toLocaleString()}/${door.maxHp.toLocaleString()} HP)`;
             
-            doorTooltip.textContent = `Door Lvl ${door.level} (${door.hp}/${door.maxHp} HP)`;
+            // Monster HP
+            const monsterPercent = (monster.hp / monster.maxHp) * 100;
+            monsterHpFill.style.width = `${monsterPercent}%`;
 
             renderGrid();
         }
@@ -643,7 +769,7 @@
             showActionMenu(door, 'door', 'door');
         }
 
-
+        // --- UPGRADE/SELL LOGIC (Retained) ---
         function showBuildMenu(tileIndex) {
             currentTileTarget = tileIndex;
             document.getElementById('build-menu').querySelector('button[data-cost="100"]').classList.toggle('disabled-btn', gold < 100);
@@ -680,7 +806,7 @@
                 alert("Not enough gold!");
             }
         }
-
+        
         function showActionMenu(target, type, tileIndex = null) {
             currentTileTarget = target;
             currentTileTarget.tileIndex = tileIndex; 
@@ -703,7 +829,7 @@
 
             if (type === 'door') {
                 const nextStats = isMaxLevel ? null : DOOR_LEVELS[nextLevelIndex];
-                infoText = `Current HP: ${target.maxHp}. Next HP: ${nextStats ? nextStats.health : 'MAX'}`;
+                infoText = `Current HP: ${target.maxHp.toLocaleString()}. Next HP: ${nextStats ? nextStats.health.toLocaleString() : 'MAX'}`;
             } else if (type === 'turret') {
                 const nextStats = isMaxLevel ? null : TURRET_LEVELS[nextLevelIndex];
                 infoText = `Current Dmg: ${currentStats.damage}, Rate: ${(1000/currentStats.fireRate).toFixed(1)}/s. Next Dmg: ${nextStats ? nextStats.damage : 'MAX'}`;
@@ -713,19 +839,18 @@
             }
             document.getElementById('menu-info').textContent = infoText;
 
-            // Update buttons
             if (isMaxLevel) {
                  upgradeBtn.textContent = "MAX LEVEL";
                  upgradeBtn.classList.add('disabled-btn');
             } else {
-                upgradeBtn.textContent = `Upgrade (${nextCost}💰)`;
+                upgradeBtn.textContent = `Upgrade (${nextCost.toLocaleString()}💰)`;
                 upgradeBtn.classList.remove('disabled-btn');
                 upgradeBtn.classList.toggle('disabled-btn', gold < nextCost);
             }
             
             const isBed = type === 'bed';
             const isDoor = type === 'door';
-            sellBtn.textContent = isDoor || isBed ? 'Cannot Sell' : `Sell (${Math.floor(blueprint.levels[target.level - 1].cost / 2)}💰)`;
+            sellBtn.textContent = isDoor || isBed ? 'Cannot Sell' : `Sell (${Math.floor(blueprint.levels[target.level - 1].cost / 2).toLocaleString()}💰)`;
             sellBtn.classList.toggle('disabled-btn', isDoor || isBed);
             
             document.getElementById('menu-overlay').style.display = 'flex';
@@ -752,7 +877,7 @@
 
                 if (isDoor) {
                     door.maxHp = nextStats.health;
-                    door.hp = door.maxHp; // FIX: Reset health to 100%
+                    door.hp = door.maxHp; 
                     door.upgradeCost = nextLevelIndex + 1 < maxLevel ? blueprint.levels[nextLevelIndex + 1].cost : 0;
                     monster.attack = nextStats.baseAttack; 
                 } else {
@@ -832,7 +957,6 @@
                 if (tile) {
                     const blueprint = STRUCTURES[tile.type];
                     
-                    // Apply upgrade cue to tile
                     if (isUpgradableAndAffordable(tile.type, tile.level)) {
                         tileElement.classList.add('upgrade-available');
                     } else {
@@ -840,21 +964,24 @@
                     }
 
                     // Render structure content
-                    let innerHTML = `<span class="structure-icon">${blueprint.icon}</span>`;
-                    
-                    // FIX: Removed barrel for bow emoji, but keep the icon render
-                    // if (tile.type === 'turret') {
-                    //      innerHTML = `<div class="turret-barrel"></div><span class="structure-icon">${blueprint.icon}</span>`;
-                    // }
+                    let iconHTML = blueprint.icon;
+                    if (tile.type === 'turret') {
+                        // Wrap turret icon in a span for rotation/aiming
+                        iconHTML = `<span class="turret-bow">${blueprint.icon}</span>`;
+                    }
                     
                     tileElement.innerHTML = `
-                        ${innerHTML}
-                        <span class="info-tooltip">${blueprint.icon} ${blueprint.name} Lvl ${tile.level}</span>
+                        <span class="structure-icon">${iconHTML}</span>
+                        <span class="info-tooltip">${blueprint.icon} Lvl ${tile.level}</span>
                     `;
                     tile.element = tileElement; 
+                    
+                    // If turret, ensure it aims immediately on re-render
+                    if (tile.type === 'turret' && monster.isAttacking) {
+                        aimTurret(tileElement);
+                    }
                 }
                 
-                // Add build mode visuals
                 if (isBuildMode) {
                     tileElement.classList.add('grid-visual-on');
                     if (!tile) {
@@ -882,8 +1009,8 @@
             monster.retreating = false;
             monster.hp = monster.maxHp;
             monsterElement.style.opacity = 1;
-            // FIX: Reset monster position to default door slam position
-            monsterElement.style.top = '-65px';
+            // Reset monster position further away from door
+            monsterElement.style.top = `calc(0px - 60px - 30px)`; 
             monsterElement.style.left = '50%';
             monsterElement.style.transform = 'translateX(-50%)'; 
             startMonsterAttack();
