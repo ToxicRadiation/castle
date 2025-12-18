@@ -401,7 +401,7 @@
         #energy-monitor-container {
             position: fixed;
             top: 10px;
-            left: 220px; /* Positioned to the right of the default top-left stats box */
+            left: 220px;
             width: 150px;
             height: 70px;
             background: #111;
@@ -417,6 +417,39 @@
         .monitor-label { font-size: 10px; color: #888; letter-spacing: 1px; width: 100%; text-align: left; margin-bottom: 2px; }
         #energy-graph { background: #000; border: 1px solid #333; }
         #kw-readout { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 12px; margin-top: 2px; width: 100%; text-align: right; }
+
+        /* WRENCH ANIMATION */
+        @keyframes wrenchPulse {
+            0% { transform: scale(1); text-shadow: 0 0 0px rgba(255, 215, 0, 0); }
+            50% { transform: scale(1.2); text-shadow: 0 0 15px rgba(255, 215, 0, 0.8); }
+            100% { transform: scale(1); text-shadow: 0 0 0px rgba(255, 215, 0, 0); }
+        }
+        .wrench-anim { display: inline-block; animation: wrenchPulse 1.5s infinite ease-in-out; }
+        .grid-tile.shutdown .wrench-anim { animation: none; filter: grayscale(100%); opacity: 0.5; }
+
+        /* LASER ANIMATION & BEAM */
+        .laser-wrapper { display: inline-block; position: relative; width: 100%; height: 100%; }
+        .laser-icon { font-size: 40px; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); line-height: 1; }
+        .laser-glow-tip {
+            position: absolute;
+            top: 5px; right: 5px; /* Approximate tip of the wand emoji */
+            width: 8px; height: 8px;
+            background: radial-gradient(circle, #fff, transparent);
+            border-radius: 50%;
+            opacity: 0;
+            pointer-events: none;
+            box-shadow: 0 0 5px #fff;
+            transition: transform 0.1s linear, opacity 0.1s;
+        }
+        .laser-beam-line {
+            position: absolute;
+            transform-origin: 0 50%;
+            z-index: 500;
+            pointer-events: none;
+            box-shadow: 0 0 15px currentColor;
+            opacity: 1;
+            transition: opacity 0.4s ease-out;
+        }
 
         /* TABS */
         .tab-container { display: flex; justify-content: space-between; margin-bottom: 10px; background: #222; padding: 5px; border-radius: 8px; }
@@ -570,6 +603,13 @@
         { cost: 600, damage: 60, fireRate: 900 }, { cost: 1200, damage: 100, fireRate: 700 },
         { cost: 2500, damage: 180, fireRate: 500 }
     ];
+    const LASER_LEVELS = [
+        { cost: 250, damage: 80, chargeTime: 3000, powerCost: 5, color: '#ff0000', width: 4 },
+        { cost: 600, damage: 200, chargeTime: 2800, powerCost: 8, color: '#ff8800', width: 6 },
+        { cost: 1400, damage: 500, chargeTime: 2500, powerCost: 12, color: '#ffff00', width: 8 },
+        { cost: 3000, damage: 1200, chargeTime: 2000, powerCost: 20, color: '#00ffff', width: 12 },
+        { cost: 6000, damage: 3000, chargeTime: 1500, powerCost: 35, color: '#ff00ff', width: 16 }
+    ];
     const BANK_LEVELS = [
         { cost: 500, multiplier: 1, powerDrain: 1 }, 
         { cost: 1200, multiplier: 2, powerDrain: 2 },
@@ -577,19 +617,35 @@
         { cost: 5000, multiplier: 8, powerDrain: 4 },
         { cost: 10000, multiplier: 16, powerDrain: 5 }
     ];
+    const REPAIR_LEVELS = [
+        { cost: 300, healPct: 0.01, powerDrain: 2 }, 
+        { cost: 600, healPct: 0.02, powerDrain: 2 },
+        { cost: 1200, healPct: 0.04, powerDrain: 2 },
+        { cost: 2400, healPct: 0.06, powerDrain: 2 },
+        { cost: 4000, healPct: 0.08, powerDrain: 2 },
+        { cost: 6000, healPct: 0.10, powerDrain: 2 },
+        { cost: 8500, healPct: 0.12, powerDrain: 2 },
+        { cost: 12000, healPct: 0.15, powerDrain: 2 },
+        { cost: 16000, healPct: 0.18, powerDrain: 2 },
+        { cost: 25000, healPct: 0.20, powerDrain: 2 }
+    ];
     
     const STRUCTURES = {
         door: { levels: DOOR_LEVELS, icon: '🚪' },
         bed: { levels: BED_LEVELS, icon: '🛏️' },
         generator: { levels: GENERATOR_LEVELS, icon: '☀️' },
         turret: { levels: TURRET_LEVELS, icon: '🏹' },
-        bank: { levels: BANK_LEVELS, icon: '🏦' }
+        laser: { levels: LASER_LEVELS, icon: '🪄' },
+        bank: { levels: BANK_LEVELS, icon: '🏦' },
+        repair: { levels: REPAIR_LEVELS, icon: '🔧' }
     };
 
     const SHOP_ITEMS = [
         { type: 'generator', category: 'default', name: 'Solar Panel', desc: 'Generates Power.', icon: '☀️' },
         { type: 'turret', category: 'default', name: 'Crossbow', desc: 'Shoots monsters.', icon: '🏹' },
-        { type: 'bank', category: 'electrical', name: 'Crypto Bank', desc: 'Buffs Turrets. Consumes Power!', icon: '🏦' }
+        { type: 'laser', category: 'default', name: 'Laser Wand', desc: 'Charges up. High Damage. Costs Power/Blast.', icon: '🪄' },
+        { type: 'bank', category: 'electrical', name: 'Crypto Bank', desc: 'Buffs Turrets. Consumes Power!', icon: '🏦' },
+        { type: 'repair', category: 'electrical', name: 'Auto-Repair', desc: 'Heals door % of Current HP. Uses 2kW.', icon: '🔧' }
     ];
 
     const MONSTER_LEVELS = [
@@ -700,17 +756,13 @@
 
     function drawEnergyGraph(currentLoad) {
         if (!ctx) return;
-        
-        // Update History
         graphHistory.shift();
         graphHistory.push(currentLoad);
 
-        // Clear
         const w = graphCanvas.width;
         const h = graphCanvas.height;
         ctx.clearRect(0, 0, w, h);
 
-        // Find scale (max value in history or at least 10)
         const maxVal = Math.max(10, ...graphHistory);
         
         ctx.beginPath();
@@ -718,7 +770,6 @@
         ctx.lineWidth = 2;
         ctx.fillStyle = 'rgba(255, 68, 68, 0.2)';
 
-        // Draw Line
         const step = w / (graphHistory.length - 1);
         ctx.moveTo(0, h - (graphHistory[0] / maxVal) * h);
 
@@ -727,14 +778,11 @@
             const y = h - (graphHistory[i] / maxVal) * h;
             ctx.lineTo(x, y);
         }
-
-        // Fill Area
         ctx.stroke();
         ctx.lineTo(w, h);
         ctx.lineTo(0, h);
         ctx.fill();
 
-        // Draw Grid Lines (visual flair)
         ctx.beginPath();
         ctx.strokeStyle = '#333';
         ctx.lineWidth = 1;
@@ -745,7 +793,7 @@
 
     // --- 7. GAME LOOPS ---
     
-    // Resource Income Loop & Passive Regen
+    // Resource Income Loop & Passive Regen & Repair Stations
     setInterval(() => {
         if (isGameOver) return;
         let goldIncome = 0; 
@@ -756,6 +804,15 @@
                 if(tile.goldEffect) goldIncome += tile.goldEffect;
                 if(tile.powerEffect) powerIncome += tile.powerEffect;
                 
+                // Active Repair Stations
+                if (tile.type === 'repair') {
+                    const rStats = STRUCTURES.repair.levels[tile.level - 1];
+                    const repairAmount = door.hp * rStats.healPct;
+                    if (door.hp < door.maxHp && door.hp > 0) {
+                        door.hp = Math.min(door.maxHp, door.hp + repairAmount);
+                    }
+                }
+
                 if ((tile.goldEffect > 0 || tile.powerEffect > 0) && tile.element) {
                     displayFloatingResourceGroup(tile.element, tile.goldEffect, tile.powerEffect);
                 }
@@ -764,10 +821,10 @@
         gold += goldIncome;
         power += powerIncome;
 
-        // --- NEW: DOOR REGEN (2% per sec) ---
+        // Passive Door Regen (2% per sec)
         if (door.hp < door.maxHp && door.hp > 0) {
-            const healAmount = door.maxHp * 0.02;
-            door.hp = Math.min(door.maxHp, door.hp + healAmount);
+            const passiveHeal = door.maxHp * 0.02;
+            door.hp = Math.min(door.maxHp, door.hp + passiveHeal);
         }
 
         updateUI();
@@ -781,10 +838,16 @@
         let consumers = [];
 
         tiles.forEach(tile => {
-            if (tile && tile.type === 'bank') {
-                const stats = STRUCTURES.bank.levels[tile.level - 1];
-                totalDrain += stats.powerDrain;
-                consumers.push(tile);
+            if (tile) {
+                if (tile.type === 'bank') {
+                    const stats = STRUCTURES.bank.levels[tile.level - 1];
+                    totalDrain += stats.powerDrain;
+                    consumers.push(tile);
+                } else if (tile.type === 'repair') {
+                    const stats = STRUCTURES.repair.levels[tile.level - 1];
+                    totalDrain += stats.powerDrain;
+                    consumers.push(tile);
+                }
             }
         });
 
@@ -894,7 +957,10 @@
         turretIntervals = [];
 
         tiles.forEach((tile, index) => {
-            if (tile && tile.type === 'turret') {
+            if (!tile) return;
+
+            // --- STANDARD TURRET ---
+            if (tile.type === 'turret') {
                 const stats = STRUCTURES.turret.levels[tile.level - 1];
                 // Aim
                 turretIntervals.push(setInterval(() => {
@@ -904,6 +970,43 @@
                 turretIntervals.push(setInterval(() => {
                     if (monster.isAttacking && !isGameOver) fireProjectile(index);
                 }, stats.fireRate));
+            } 
+            // --- LASER TURRET ---
+            else if (tile.type === 'laser') {
+                const stats = STRUCTURES.laser.levels[tile.level - 1];
+                tile.lastFired = tile.lastFired || Date.now();
+                
+                // Logic Loop (Aim + Charge + Fire)
+                turretIntervals.push(setInterval(() => {
+                    if (isGameOver || !monster.isAttacking) return;
+                    if (!tile.element) return;
+
+                    // 1. Aim
+                    aimTurret(tile);
+
+                    // 2. Charge Visuals
+                    const now = Date.now();
+                    const progress = Math.min(1, (now - tile.lastFired) / stats.chargeTime);
+                    const glow = tile.element.querySelector('.laser-glow-tip');
+                    if(glow) {
+                        glow.style.transform = `scale(${1 + (progress * 2)})`; // Grow up to 3x
+                        glow.style.opacity = progress;
+                        glow.style.backgroundColor = progress > 0.9 ? stats.color : '#fff';
+                    }
+
+                    // 3. Fire Logic
+                    if (now - tile.lastFired >= stats.chargeTime) {
+                        // Check Power
+                        if (power >= stats.powerCost) {
+                            power -= stats.powerCost;
+                            tile.lastFired = now;
+                            animatePowerLoss(stats.powerCost);
+                            fireLaserBeam(tile, stats);
+                            updateUI(); // Immediate UI update for power loss
+                        }
+                    }
+
+                }, 50)); 
             }
         });
     }
@@ -915,8 +1018,13 @@
         const deltaX = mRect.left - tRect.left;
         const deltaY = mRect.top - tRect.top;
         tile.currentRotation = (Math.atan2(deltaY, deltaX) * (180/Math.PI)) + 45;
-        const bow = tile.element.querySelector('.turret-bow');
-        if (bow) bow.style.transform = `rotate(${tile.currentRotation}deg)`;
+        
+        // Target specific wrapper classes based on type
+        const rotator = tile.type === 'laser' 
+            ? tile.element.querySelector('.laser-wrapper') 
+            : tile.element.querySelector('.turret-bow');
+            
+        if (rotator) rotator.style.transform = `rotate(${tile.currentRotation}deg)`;
     }
 
     function fireProjectile(index) {
@@ -960,6 +1068,48 @@
         }, 10);
         
         setTimeout(() => { damageMonster(stats.damage); proj.remove(); }, 500); 
+    }
+
+    function fireLaserBeam(tile, stats) {
+        const tRect = tile.element.getBoundingClientRect();
+        const mRect = monsterElement.getBoundingClientRect();
+        const gameRect = document.getElementById('game-container').getBoundingClientRect();
+
+        // Start point (center of tile)
+        const x1 = (tRect.left + tRect.width/2) - gameRect.left;
+        const y1 = (tRect.top + tRect.height/2) - gameRect.top;
+        // End point (center of monster)
+        const x2 = (mRect.left + mRect.width/2) - gameRect.left;
+        const y2 = (mRect.top + mRect.height/2) - gameRect.top;
+
+        // Math
+        const length = Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+        const angle = Math.atan2(y2-y1, x2-x1) * (180/Math.PI);
+
+        // Create Beam
+        const beam = document.createElement('div');
+        beam.className = 'laser-beam-line';
+        beam.style.width = `${length}px`;
+        beam.style.height = `${stats.width}px`; // Grows with level
+        beam.style.backgroundColor = stats.color;
+        beam.style.color = stats.color; // Used for shadow
+        beam.style.left = `${x1}px`;
+        beam.style.top = `${y1}px`;
+        beam.style.transform = `rotate(${angle}deg) translateY(-50%)`; // Centered vertically
+        
+        document.getElementById('game-container').appendChild(beam);
+
+        // Flash Effect on Tile
+        tile.element.style.filter = `brightness(2) drop-shadow(0 0 10px ${stats.color})`;
+        setTimeout(() => tile.element.style.filter = '', 100);
+
+        damageMonster(stats.damage);
+
+        // Fade out
+        setTimeout(() => {
+            beam.style.opacity = 0;
+            setTimeout(() => beam.remove(), 400);
+        }, 300);
     }
 
     // --- 9. UI RENDERING ---
@@ -1067,6 +1217,8 @@
                 goldEffect: stats.goldGen || 0, powerEffect: stats.powerGen || 0,
                 isDisabled: false, element: null 
             };
+            if(type === 'laser') tiles[currentTileTarget].lastFired = Date.now(); // Init timer
+
             closeMenu(); renderGrid(); updateTurretIntervals(); updateUI(); toggleBuildMode(); 
         }
     }
@@ -1083,6 +1235,8 @@
         
         let info = "";
         if (type === 'bank') info = `Bonus: ${blueprint.levels[target.level-1].multiplier}x 💰 | Drain: ${blueprint.levels[target.level-1].powerDrain}kW`;
+        else if (type === 'repair') info = `Repair: ${Math.round(blueprint.levels[target.level-1].healPct * 100)}% Current HP | Drain: ${blueprint.levels[target.level-1].powerDrain}kW`;
+        else if (type === 'laser') info = `Dmg: ${blueprint.levels[target.level-1].damage} | Cost: ${blueprint.levels[target.level-1].powerCost}kW/Shot`;
         else if (isMax) info = "MAX LEVEL";
         else info = `Next: Level ${target.level+1}`;
 
@@ -1114,7 +1268,7 @@
                 Object.assign(target, { 
                     goldEffect: nextStats.goldGen||0, powerEffect: nextStats.powerGen||0
                 });
-                if (target.type === 'turret') updateTurretIntervals();
+                if (target.type === 'turret' || target.type === 'laser') updateTurretIntervals();
             }
             closeMenu(); renderGrid(); updateUI();
         }
@@ -1165,7 +1319,20 @@
                 }
 
                 let icon = bp.icon;
-                if (tile.type === 'turret') icon = `<span class="turret-bow" style="display:inline-block; transition:none; transform: rotate(${tile.currentRotation||0}deg)">${bp.icon}</span>`;
+                if (tile.type === 'turret') {
+                    icon = `<span class="turret-bow" style="display:inline-block; transition:none; transform: rotate(${tile.currentRotation||0}deg)">${bp.icon}</span>`;
+                } 
+                else if (tile.type === 'repair') {
+                    icon = `<span class="wrench-anim">${bp.icon}</span>`;
+                }
+                else if (tile.type === 'laser') {
+                    // Wrapper for rotation + Glow element
+                    icon = `
+                    <div class="laser-wrapper" style="transform: rotate(${tile.currentRotation||0}deg)">
+                        <div class="laser-icon">${bp.icon}</div>
+                        <div class="laser-glow-tip"></div>
+                    </div>`;
+                }
                 
                 div.innerHTML += `<span class="structure-icon">${icon}</span><span class="info-tooltip">${bp.icon} Lvl ${tile.level}</span>`;
                 tile.element = div;
