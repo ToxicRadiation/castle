@@ -124,18 +124,7 @@
             z-index: 101; /* Ensure knob is visible */
         }
 
-        #door-hp-visual {
-            position: absolute;
-            bottom: -5px; 
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80%;
-            height: 5px;
-            background-color: gray;
-            border-radius: 3px;
-            overflow: hidden;
-            z-index: 102; /* Above door and monster */
-        }
+        
 
         /* --- Monster Styles & HP Bar --- */
         #monster {
@@ -340,9 +329,6 @@
             </div>
     </div>
 
-    <p class="hint">
-        Press **E** to toggle **Build Mode** | Click on occupied cells to **Upgrade/Sell**
-    </p>
 
     <div id="menu-overlay">
         <div id="action-menu">
@@ -356,671 +342,787 @@
         <div id="build-menu" style="display: none;">
             <div class="menu-title">Place Structure</div>
             <button class="menu-button" onclick="placeStructure('turret')" data-cost="150">🏹 Turret (150💰)</button>
-            <button class="menu-button" onclick="placeStructure('generator')" data-cost="100">☀️ Generator (100💰)</button>
+            <button class="menu-button" onclick="placeStructure('generator')" data-cost="100">🏭 Generator (100💰)</button>
             <button class="menu-button" onclick="closeMenu()">Cancel</button>
         </div>
     </div>
 
     <script>
-        // --- CONSTANTS ---
-        const GRID_COLS = 15;
-        const GRID_ROWS = 4;
-        const CELL_SIZE = 60;
-        const TILE_COUNT = GRID_COLS * GRID_ROWS;
-        // The bed should be near the center of the third row
-        const BED_TILE_INDEX = (GRID_ROWS - 2) * GRID_COLS + Math.floor(GRID_COLS / 2); 
+    // --- 1. ROBUST UI INJECTION (CRASH FIX) ---
+    // This section ensures all necessary UI elements exist before the game starts.
+
+    // A. Action Menu (Upgrade Popup)
+    if (!document.getElementById('action-menu')) {
+        const menuDiv = document.createElement('div');
+        menuDiv.id = 'action-menu';
+        menuDiv.innerHTML = `
+            <div id="menu-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1999;"></div>
+            <h2 id="menu-title">Level 1</h2>
+            <div id="menu-info">Stats here</div>
+            <div class="action-btn-group">
+                <button id="upgrade-btn">Upgrade</button>
+                <button id="sell-btn">Sell</button>
+                <button id="close-btn">Close</button>
+            </div>
+        `;
+        document.body.appendChild(menuDiv);
+    }
+
+    // B. Power Usage Display (KW Monitor)
+    // We attach this relative to 'power-amount' so it doesn't crash if a 'stats' container is missing.
+    if (!document.getElementById('power-usage-display')) {
+        const pAmount = document.getElementById('power-amount');
+        if (pAmount && pAmount.parentNode) {
+            const usageDiv = document.createElement('div');
+            usageDiv.id = 'power-usage-display';
+            usageDiv.innerHTML = `⚡ Load: <span id="kw-value">0</span> kW`;
+            usageDiv.style.cssText = "color: #ff4444; font-size: 14px; margin-top: 5px; font-weight:bold; text-shadow: 1px 1px 0 #000;";
+            pAmount.parentNode.appendChild(usageDiv);
+        }
+    }
+
+    // C. Door HP Bar
+    if (!document.getElementById('ui-door-hp-container')) {
+        const hpContainer = document.createElement('div');
+        hpContainer.id = 'ui-door-hp-container';
+        hpContainer.innerHTML = `<div id="ui-door-hp-fill"></div><div id="ui-door-hp-text">Door HP</div>`;
+        document.body.appendChild(hpContainer);
+    }
+
+    // D. Toast Notification
+    if (!document.getElementById('game-toast')) {
+        const toastDiv = document.createElement('div');
+        toastDiv.id = 'game-toast';
+        document.body.appendChild(toastDiv);
+    }
+
+    // --- 2. CSS STYLES ---
+    const styleFix = document.createElement('style');
+    styleFix.innerHTML = `
+        /* TABS */
+        .tab-container { display: flex; justify-content: space-between; margin-bottom: 10px; background: #222; padding: 5px; border-radius: 8px; }
+        .tab-btn {
+            flex: 1; background: transparent; border: none; color: #888; 
+            padding: 8px; cursor: pointer; font-weight: bold; border-bottom: 2px solid transparent;
+        }
+        .tab-btn.active { color: white; border-bottom: 2px solid #ffd700; }
+        .tab-btn:hover { color: #ccc; }
+
+        /* SHUTDOWN STATE */
+        .grid-tile.shutdown { opacity: 0.6; filter: grayscale(80%); border: 2px solid #ff0000; }
+        .shutdown-icon {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 24px; animation: blinkWarning 1s infinite; pointer-events: none; z-index: 10;
+        }
+        @keyframes blinkWarning { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* POWER DRAIN ANIMATION */
+        .power-drain-text {
+            position: absolute; color: #ff4444; font-weight: bold; font-size: 16px;
+            pointer-events: none; animation: slideRightFade 0.8s forwards; z-index: 2000;
+            text-shadow: 1px 1px 0 #000;
+        }
+        @keyframes slideRightFade {
+            0% { opacity: 1; transform: translate(0, 0); }
+            100% { opacity: 0; transform: translate(30px, -10px); }
+        }
+
+        /* MENUS & TOASTS */
+        #game-toast {
+            position: fixed; top: -150px; left: 50%; transform: translateX(-50%);
+            width: 70%; background: rgba(0, 0, 0, 0.95); 
+            border: 3px solid #ff4444; border-top: none;
+            border-bottom-left-radius: 15px; border-bottom-right-radius: 15px;
+            color: white; padding: 20px; text-align: center;
+            font-size: 24px; font-weight: bold; z-index: 10000;
+            transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #game-toast.show { top: 0; }
+        #game-toast.danger { border-color: #ff0000; color: #ffcccc; }
         
-        // --- LEVEL TABLES (Retained) ---
-        const DOOR_LEVELS = [
-            { cost: 0, health: 300, baseAttack: 10 }, { cost: 100, health: 500, baseAttack: 10 },
-            { cost: 250, health: 800, baseAttack: 10 }, { cost: 500, health: 1200, baseAttack: 10 },
-            { cost: 1000, health: 2000, baseAttack: 10 },
-        ];
-        const BED_LEVELS = [
-            { cost: 0, goldGen: 100, powerGen: 0 }, { cost: 150, goldGen: 2, powerGen: 0 },
-            { cost: 400, goldGen: 400, powerGen: 0 }, { cost: 900, goldGen: 8, powerGen: 0 },
-            { cost: 1800, goldGen: 1500, powerGen: 0 }
-        ];
-        const GENERATOR_LEVELS = [
-            { cost: 100, goldGen: 0, powerGen: 1 }, { cost: 200, goldGen: 0, powerGen: 3 },
-            { cost: 450, goldGen: 0, powerGen: 6 }, { cost: 900, goldGen: 0, powerGen: 12 },
-            { cost: 1800, goldGen: 0, powerGen: 25 }
-        ];
-        const TURRET_LEVELS = [
-            { cost: 150, damage: 20, fireRate: 1500 }, { cost: 300, damage: 35, fireRate: 1200 },
-            { cost: 600, damage: 60, fireRate: 900 }, { cost: 1200, damage: 100, fireRate: 700 },
-            { cost: 2500, damage: 180, fireRate: 500 }
-        ];
-        const STRUCTURES = {
-            door: { levels: DOOR_LEVELS, icon: '🚪' },
-            bed: { levels: BED_LEVELS, icon: '🛏️' },
-            generator: { levels: GENERATOR_LEVELS, icon: '☀️' },
-            turret: { levels: TURRET_LEVELS, icon: '🏹' }
-        };
+        #action-menu {
+            display: none; position: fixed; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%); width: 300px; 
+            background: #2a2a2a; border: 4px solid #fff; border-radius: 12px; 
+            padding: 20px; text-align: center; color: white; 
+            z-index: 2000; box-shadow: 0 10px 50px rgba(0,0,0,1);
+        }
+        #menu-title { margin-top: 0; font-size: 24px; color: #ffd700; text-shadow: 2px 2px 0 #000; }
+        #menu-info { margin-bottom: 20px; color: #ccc; font-size: 14px; }
+        .action-btn-group { display: flex; flex-direction: column; gap: 12px; }
+        
+        #upgrade-btn, #sell-btn, #close-btn {
+            width: 100%; padding: 15px; border: none; border-radius: 8px;
+            font-size: 18px; font-weight: bold; cursor: pointer; color: white;
+            text-shadow: 1px 1px 0 rgba(0,0,0,0.5); position: relative;
+        }
+        #upgrade-btn { background: #28a745; box-shadow: 0 6px 0 #1e7e34; }
+        #upgrade-btn:active { top: 6px; box-shadow: none; }
+        #sell-btn { background: #d9534f; box-shadow: 0 6px 0 #c9302c; }
+        #sell-btn:active { top: 6px; box-shadow: none; }
+        #close-btn { background: #555; box-shadow: 0 6px 0 #333; margin-top: 10px; }
+        #close-btn:active { top: 6px; box-shadow: none; }
+        .disabled-btn { background-color: #444 !important; color: #888 !important; box-shadow: none !important; cursor: not-allowed; pointer-events: none; top: 6px; }
 
+        #build-menu {
+            display: none; position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); width: 400px; max-height: 80vh;
+            background: #2a2a2a; border: 4px solid #4a4a4a; border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.8); z-index: 2000;
+            overflow-y: auto; padding: 10px; scrollbar-width: none;
+        }
+        #build-menu::-webkit-scrollbar { display: none; }
+        .shop-card {
+            display: flex; align-items: center; background: #333;
+            margin-bottom: 10px; border-radius: 8px; border: 2px solid #555;
+            padding: 10px; height: 100px; transition: transform 0.1s;
+        }
+        .shop-card:hover { border-color: #ffd700; transform: scale(1.02); }
+        .shop-card.disabled { opacity: 0.6; filter: grayscale(100%); pointer-events: none; }
+        .card-info { flex: 1; display: flex; flex-direction: column; padding-right: 10px; }
+        .card-title { font-size: 18px; font-weight: bold; color: #fff; margin-bottom: 4px; }
+        .card-desc { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+        .card-action { display: flex; align-items: center; gap: 10px; }
+        .card-price { font-size: 14px; color: #ffd700; font-weight: bold; }
+        .card-buy-btn { background: #28a745; border: none; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        .card-icon { font-size: 60px; line-height: 1; height: 90%; display: flex; align-items: center; }
 
-        // --- GAME STATE ---
-        let gold = 100;
-        let power = 0;
-        let isBuildMode = false; 
-        let isGameOver = false; 
-        let door = {
-            type: 'door', level: 1, 
-            hp: DOOR_LEVELS[0].health, maxHp: DOOR_LEVELS[0].health, 
-            upgradeCost: DOOR_LEVELS[1].cost,
-        };
-        let monster = {
-            hp: 500, maxHp: 500, attack: DOOR_LEVELS[0].baseAttack, wave: 1, retreating: false, isAttacking: true
-        };
-        let currentTileTarget = null; 
+        .build-plus { animation: smoothPulse 3s infinite ease-in-out !important; }
+        @keyframes smoothPulse { 0% { opacity: 0.5; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0.5; transform: scale(0.8); } }
+        .monster-slam { animation: slam 0.2s ease-in-out !important; }
+        @keyframes slam { 0% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 20px); } 100% { transform: translate(-50%, 0); } }
+        .door-shake { animation: shakeDoor 0.3s ease-in-out; }
+        @keyframes shakeDoor { 0% { transform: translateX(-50%) rotate(0deg); } 25% { transform: translateX(-50%) rotate(-5deg); } 50% { transform: translateX(-50%) rotate(5deg); } 75% { transform: translateX(-50%) rotate(-5deg); } 100% { transform: translateX(-50%) rotate(0deg); } }
 
-        // Initialize Tile Grid 
-        let tiles = Array(TILE_COUNT).fill(null).map((_, index) => {
-            if (index === BED_TILE_INDEX) {
-                const bedStats = BED_LEVELS[0];
-                return {
-                    type: 'bed', level: 1, 
-                    goldEffect: bedStats.goldGen, powerEffect: bedStats.powerGen,
-                    cost: bedStats.cost, element: null
-                };
+        .floating-group {
+            display: flex; gap: 8px; position: absolute; font-size: 1.2em; 
+            font-weight: bold; pointer-events: none; z-index: 150;
+            animation: drift-and-fade 1s ease-out forwards;
+            white-space: nowrap; text-shadow: 1px 1px 0 #000;
+        }
+        @keyframes drift-and-fade {
+            0% { transform: translate(0, 0); opacity: 1; }
+            100% { transform: translate(0, -30px); opacity: 0; }
+        }
+        
+        #ui-door-hp-container {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 300px; height: 20px; background: #333;
+            border: 2px solid #fff; border-radius: 10px; overflow: hidden;
+            z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+        }
+        #ui-door-hp-fill { height: 100%; width: 100%; background: #00ff00; transition: width 0.2s; }
+        #ui-door-hp-text {
+            position: absolute; width: 100%; text-align: center; top: 0;
+            line-height: 20px; color: white; font-size: 12px;
+            font-weight: bold; text-shadow: 1px 1px 0 #000;
+        }
+    `;
+    document.head.appendChild(styleFix);
+
+    // --- 3. GAME CONSTANTS & DATA ---
+    const GRID_COLS = 15;
+    const GRID_ROWS = 4;
+    const CELL_SIZE = 60;
+    const TILE_COUNT = GRID_COLS * GRID_ROWS;
+    const BED_TILE_INDEX = (GRID_ROWS - 2) * GRID_COLS + Math.floor(GRID_COLS / 2); 
+
+    const DOOR_LEVELS = [
+        { cost: 0, health: 300, color: '#8B4513', knob: '#FFD700', name: 'Wood Door' },
+        { cost: 100, health: 500, color: '#708090', knob: '#C0C0C0', name: 'Iron Door' },
+        { cost: 250, health: 800, color: '#C0C0C0', knob: '#FF4500', name: 'Steel Door' },
+        { cost: 500, health: 1200, color: '#FFD700', knob: '#00FFFF', name: 'Gold Door' },
+        { cost: 1000, health: 2000, color: '#9932CC', knob: '#FFFF00', name: 'Dark Matter' },
+    ];
+    const BED_LEVELS = [
+        { cost: 0, goldGen: 100, powerGen: 1 }, 
+        { cost: 200, goldGen: 200, powerGen: 2 },
+        { cost: 500, goldGen: 450, powerGen: 3 },
+        { cost: 1200, goldGen: 900, powerGen: 5 },
+        { cost: 3000, goldGen: 2000, powerGen: 10 }
+    ];
+    const GENERATOR_LEVELS = [
+        { cost: 100, goldGen: 0, powerGen: 1 }, { cost: 200, goldGen: 0, powerGen: 3 },
+        { cost: 450, goldGen: 0, powerGen: 6 }, { cost: 900, goldGen: 0, powerGen: 12 },
+        { cost: 1800, goldGen: 0, powerGen: 25 }
+    ];
+    const TURRET_LEVELS = [
+        { cost: 150, damage: 20, fireRate: 1500 }, { cost: 300, damage: 35, fireRate: 1200 },
+        { cost: 600, damage: 60, fireRate: 900 }, { cost: 1200, damage: 100, fireRate: 700 },
+        { cost: 2500, damage: 180, fireRate: 500 }
+    ];
+    const BANK_LEVELS = [
+        { cost: 500, multiplier: 1, powerDrain: 1 }, 
+        { cost: 1200, multiplier: 2, powerDrain: 2 },
+        { cost: 2500, multiplier: 4, powerDrain: 3 },
+        { cost: 5000, multiplier: 8, powerDrain: 4 },
+        { cost: 10000, multiplier: 16, powerDrain: 5 }
+    ];
+    
+    const STRUCTURES = {
+        door: { levels: DOOR_LEVELS, icon: '🚪' },
+        bed: { levels: BED_LEVELS, icon: '🛏️' },
+        generator: { levels: GENERATOR_LEVELS, icon: '☀️' },
+        turret: { levels: TURRET_LEVELS, icon: '🏹' },
+        bank: { levels: BANK_LEVELS, icon: '🏦' }
+    };
+
+    const SHOP_ITEMS = [
+        { type: 'generator', category: 'default', name: 'Solar Panel', desc: 'Generates Power.', icon: '☀️' },
+        { type: 'turret', category: 'default', name: 'Crossbow', desc: 'Shoots monsters.', icon: '🏹' },
+        { type: 'bank', category: 'electrical', name: 'Crypto Bank', desc: 'Buffs Turrets. Consumes Power!', icon: '🏦' }
+    ];
+
+    const MONSTER_LEVELS = [
+        { hp: 500, damage: 5, attackRate: 1500 },
+        { hp: 800, damage: 10, attackRate: 1400 },
+        { hp: 1300, damage: 20, attackRate: 1300 },
+        { hp: 2100, damage: 40, attackRate: 1200 },
+        { hp: 3500, damage: 60, attackRate: 1100 },
+        { hp: 6000, damage: 90, attackRate: 1000 },
+        { hp: 10000, damage: 150, attackRate: 800 },
+    ];
+
+    // --- 4. GAME STATE ---
+    let gold = 100;
+    let power = 100;
+    let isBuildMode = false; 
+    let isGameOver = false; 
+    let currentShopTab = 'default';
+
+    let door = { type: 'door', level: 1, hp: DOOR_LEVELS[0].health, maxHp: DOOR_LEVELS[0].health };
+    let monster = { level: 1, hp: 500, maxHp: 500, damage: 5, attackRate: 1500, isAttacking: true };
+    let currentTileTarget = null; 
+
+    // Initialize Grid with Bed
+    let tiles = Array(TILE_COUNT).fill(null).map((_, index) => {
+        if (index === BED_TILE_INDEX) {
+            return { type: 'bed', level: 1, goldEffect: 100, powerEffect: 1, cost: 0, isDisabled: false, element: null };
+        }
+        return null;
+    });
+
+    // --- 5. DOM REFERENCES ---
+    const uiGold = document.getElementById('gold-amount');
+    const uiPower = document.getElementById('power-amount');
+    const uiKwDisplay = document.getElementById('kw-value'); // Might be null if script above failed, but we handled it
+    const uiWave = document.getElementById('wave-count');
+    const monsterDamageDisplay = document.getElementById('monster-damage');
+    const monsterWaveDisplay = document.getElementById('monster-wave');
+    const doorElement = document.getElementById('door');
+    const monsterElement = document.getElementById('monster');
+    const monsterHpFill = document.getElementById('monster-hp-fill');
+    const gridElement = document.getElementById('game-grid');
+    const upgradeBtn = document.getElementById('upgrade-btn');
+    const sellBtn = document.getElementById('sell-btn');
+    const closeBtn = document.getElementById('close-btn');
+    const doorHpFill = document.getElementById('ui-door-hp-fill');
+    const doorHpText = document.getElementById('ui-door-hp-text');
+    const toastElement = document.getElementById('game-toast');
+
+    let monsterAttackInterval = null;
+
+    // --- 6. UTILITY FUNCTIONS ---
+    function showToast(msg, type = 'neutral') {
+        if(!toastElement) return;
+        toastElement.textContent = msg;
+        toastElement.className = ''; 
+        if(type === 'danger') toastElement.classList.add('danger');
+        if(type === 'success') toastElement.classList.add('success');
+        toastElement.classList.add('show');
+        setTimeout(() => toastElement.classList.remove('show'), 3000);
+    }
+
+    function animatePowerLoss(amount) {
+        if (!uiPower) return;
+        const rect = uiPower.getBoundingClientRect();
+        const anim = document.createElement('span');
+        anim.textContent = `-${amount}`;
+        anim.className = 'power-drain-text';
+        anim.style.left = (rect.right + 10) + 'px';
+        anim.style.top = rect.top + 'px';
+        document.body.appendChild(anim);
+        setTimeout(() => anim.remove(), 1000);
+    }
+
+    function displayFloatingResourceGroup(sourceElement, goldAmount, powerAmount) {
+        if (!sourceElement) return;
+        const rect = sourceElement.getBoundingClientRect();
+        const group = document.createElement('div');
+        group.className = 'floating-group';
+        
+        const startX = rect.left + rect.width / 2;
+        const startY = rect.top; 
+
+        if (goldAmount > 0) {
+            const gSpan = document.createElement('span');
+            gSpan.textContent = `+${goldAmount}💰`;
+            gSpan.style.color = 'gold';
+            group.appendChild(gSpan);
+        }
+        if (powerAmount > 0) {
+            const pSpan = document.createElement('span');
+            pSpan.textContent = `+${powerAmount}⚡`;
+            pSpan.style.color = '#00ffff';
+            group.appendChild(pSpan);
+        }
+        
+        group.style.left = `${startX}px`; 
+        group.style.top = `${startY}px`;
+        document.body.appendChild(group); 
+        setTimeout(() => group.remove(), 1000); 
+    }
+
+    // --- 7. GAME LOOPS ---
+    
+    // Resource Income Loop
+    setInterval(() => {
+        if (isGameOver) return;
+        let goldIncome = 0; 
+        let powerIncome = 0;
+
+        tiles.forEach(tile => {
+            if (tile && !tile.isDisabled) {
+                if(tile.goldEffect) goldIncome += tile.goldEffect;
+                if(tile.powerEffect) powerIncome += tile.powerEffect;
+                
+                if ((tile.goldEffect > 0 || tile.powerEffect > 0) && tile.element) {
+                    displayFloatingResourceGroup(tile.element, tile.goldEffect, tile.powerEffect);
+                }
             }
-            return null;
+        });
+        gold += goldIncome;
+        power += powerIncome;
+        updateUI();
+    }, 1000);
+
+    // Power Consumption Loop
+    setInterval(() => {
+        if (isGameOver) return;
+        
+        let totalDrain = 0;
+        let consumers = [];
+
+        tiles.forEach(tile => {
+            if (tile && tile.type === 'bank') {
+                const stats = STRUCTURES.bank.levels[tile.level - 1];
+                totalDrain += stats.powerDrain;
+                consumers.push(tile);
+            }
         });
 
-        // --- DOM ELEMENTS ---
-        const uiGold = document.getElementById('gold-amount');
-        const uiPower = document.getElementById('power-amount');
-        const uiWave = document.getElementById('wave-count');
-        const monsterDamageDisplay = document.getElementById('monster-damage');
-        const monsterWaveDisplay = document.getElementById('monster-wave');
-        const doorElement = document.getElementById('door');
-        const monsterElement = document.getElementById('monster');
-        const monsterHpFill = document.getElementById('monster-hp-fill');
-        const gridElement = document.getElementById('game-grid');
-        const doorTooltip = document.getElementById('door-tooltip');
-        const doorHpFillOverlay = document.getElementById('door-hp-fill-overlay');
-        const upgradeBtn = document.getElementById('upgrade-btn');
-        const sellBtn = document.getElementById('sell-btn');
-        const closeBtn = document.getElementById('close-btn');
-
-        let monsterAttackInterval = null;
-
-
-        // --- RESOURCE GENERATION & FLOATING TEXT ---
-        function generateResources() {
-            if (isGameOver) return;
-            let goldIncome = 0;
-            let powerIncome = 0;
-
-            tiles.forEach(tile => {
-                if (tile && (tile.type === 'bed' || tile.type === 'generator')) {
-                    const goldAmount = tile.goldEffect || 0;
-                    const powerAmount = tile.powerEffect || 0;
-                    
-                    goldIncome += goldAmount;
-                    powerIncome += powerAmount;
-
-                    if (goldAmount > 0 || powerAmount > 0) {
-                        displayFloatingResource(tile.element, goldAmount, powerAmount);
-                    }
-                }
-            });
-
-            gold += goldIncome;
-            power += powerIncome;
-            updateUI();
+        // Safe update of KW Display
+        if(document.getElementById('kw-value')) {
+            const jitter = totalDrain > 0 ? (Math.random() * 0.2 - 0.1) : 0;
+            document.getElementById('kw-value').textContent = (totalDrain + jitter).toFixed(1);
         }
-        
-        // FIX: Adjusted displayFloatingResource for random positioning centered in cell
-        function displayFloatingResource(sourceElement, goldAmount, powerAmount) {
-            if (!sourceElement) return;
 
-            const rect = sourceElement.getBoundingClientRect();
-            const containerRect = document.getElementById('game-container').getBoundingClientRect();
-            
-            // Random position centered over the cell: X variance from -20px to +20px from center
-            const randomOffsetX = 0;
-            const startX = rect.left + rect.width / 2 - containerRect.left + randomOffsetX;
-            const startY = rect.top - containerRect.top; 
-
-            if (goldAmount > 0) {
-                const goldEl = createFloatingElement(`+${goldAmount}💰`, 'floating-gold', startX, startY);
-                document.getElementById('game-container').appendChild(goldEl);
-                setTimeout(() => goldEl.remove(), 1000); 
-            }
-            
-            if (powerAmount > 0) {
-                const powerEl = createFloatingElement(`+${powerAmount}⚡`, 'floating-power', startX, startY - 10);
-                document.getElementById('game-container').appendChild(powerEl);
-                setTimeout(() => powerEl.remove(), 1000);
+        if (totalDrain > 0) {
+            if (power >= totalDrain) {
+                power -= totalDrain;
+                animatePowerLoss(totalDrain);
+                consumers.forEach(t => {
+                    t.isDisabled = false;
+                    if(t.element) {
+                        t.element.classList.remove('shutdown');
+                        const warn = t.element.querySelector('.shutdown-icon');
+                        if(warn) warn.remove();
+                    }
+                });
+            } else {
+                consumers.forEach(t => {
+                    t.isDisabled = true;
+                    if(t.element && !t.element.querySelector('.shutdown-icon')) {
+                        t.element.classList.add('shutdown');
+                        const icon = document.createElement('div');
+                        icon.className = 'shutdown-icon';
+                        icon.textContent = '⚠️';
+                        t.element.appendChild(icon);
+                    }
+                });
             }
         }
+        updateUI();
+    }, 1000);
+
+    // --- 8. LOGIC (Combat, Build, Upgrade) ---
+    function updateDoorVisuals() {
+        if(!doorElement) return;
+        const currentStats = DOOR_LEVELS[door.level - 1] || DOOR_LEVELS[DOOR_LEVELS.length-1];
+        doorElement.style.backgroundColor = currentStats.color;
+        const knob = document.getElementById('door-knob');
+        if (knob) knob.style.backgroundColor = currentStats.knob;
+    }
+
+    function startMonsterAttack() {
+        if (monsterAttackInterval) clearInterval(monsterAttackInterval);
+        monsterAttackInterval = setInterval(() => {
+            if (monster.isAttacking && !isGameOver) {
+                monsterElement.classList.add('monster-slam');
+                setTimeout(() => monsterElement.classList.remove('monster-slam'), 200);
+                
+                door.hp -= monster.damage;
+                doorElement.classList.remove('door-shake');
+                void doorElement.offsetWidth; 
+                doorElement.classList.add('door-shake');
+
+                if (door.hp <= 0) { door.hp = 0; endGameSequence(); return; }
+                
+                doorElement.classList.add('door-hit');
+                setTimeout(() => doorElement.classList.remove('door-hit'), 50);
+
+                updateUI();
+            }
+        }, monster.attackRate);
+    }
+    
+    function damageMonster(damage) {
+        if (isGameOver) return;
+        monster.hp -= damage;
+        monsterElement.classList.add('monster-hit');
+        setTimeout(() => monsterElement.classList.remove('monster-hit'), 50);
         
-        function createFloatingElement(text, className, x, y) {
-            const el = document.createElement('div');
-            el.className = `floating-resource ${className}`;
-            el.textContent = text;
-            el.style.left = `${x - 15}px`; // FIX: Subtract 15px to account for half its width, centering it visually.
-            el.style.top = `${y}px`;
-            return el;
-        }
-
-        setInterval(generateResources, 1000);
-
-        // --- MONSTER & DOOR LOGIC --- 
-
-        function startMonsterAttack() {
-            monster.isAttacking = true;
-            if (monsterAttackInterval) clearInterval(monsterAttackInterval);
-            
-            // Set initial position for attack transition
-            monsterElement.style.top = `calc(0px - 60px - 30px)`; 
-            
-            monsterAttackInterval = setInterval(() => {
-                if (monster.isAttacking && !monster.retreating && !isGameOver) {
-                    
-                    // Trigger slam animation for visual effect
-                    monsterElement.classList.add('monster-slam');
-                    setTimeout(() => {
-                        monsterElement.classList.remove('monster-slam');
-                    }, 200);
-
-                    door.hp -= monster.attack;
-                    if (door.hp < 0) { 
-                        door.hp = 0;
-                        endGameSequence(); 
-                        return;
-                    }
-                    
-                    doorFlashHit(); 
-                    
-                    if (monster.hp / monster.maxHp < 0.1 && !monster.retreating) {
-                        clearInterval(monsterAttackInterval);
-                        retreatMonster();
-                    }
-                    updateUI();
-                } else if (!monster.isAttacking || isGameOver) {
-                    clearInterval(monsterAttackInterval);
-                }
-            }, 1500);
-        }
-        
-        function endGameSequence() {
-            isGameOver = true;
+        if (monster.hp <= 0) {
             monster.isAttacking = false;
             clearInterval(monsterAttackInterval);
-            turretIntervals.forEach(clearInterval); 
-            doorElement.style.opacity = 0; 
-            
-            const bedCol = BED_TILE_INDEX % GRID_COLS;
-            const bedRow = Math.floor(BED_TILE_INDEX / GRID_COLS);
-            
-            const targetX = bedCol * CELL_SIZE + CELL_SIZE / 2;
-            const targetY = bedRow * CELL_SIZE + CELL_SIZE / 2;
-            
-            monsterElement.style.top = `${targetY}px`;
-            monsterElement.style.left = `${targetX}px`;
-            // Center monster emoji (4em wide/tall, approx 60px)
-            monsterElement.style.transform = `translate(-50%, -50%)`; 
-            
-            setTimeout(() => {
-                alert(`GAME OVER on Wave ${monster.wave}! The monster reached your bed!`);
-            }, 1000); 
-        }
-
-
-        function doorFlashHit() {
-            doorElement.classList.add('door-hit');
-            setTimeout(() => {
-                doorElement.classList.remove('door-hit');
-            }, 50);
-        }
-        
-        function retreatMonster() {
-            monster.retreating = true;
-            monster.isAttacking = false;
             monsterElement.style.opacity = 0;
-            
-            setTimeout(() => {
-                monster.wave++;
-                monster.maxHp = Math.round(monster.maxHp * 1.5);
-                monster.attack = Math.round(monster.attack * 1.5);
-                startWave(); 
-            }, Math.random() * 10000 + 10000); 
+            gold += Math.round(monster.maxHp * 0.2); 
+            monster.level++;
+            showToast(`⚠️ WARNING: Monster Level ${monster.level} Incoming!`, 'danger');
+            setTimeout(startWave, 2000); 
         }
+        updateUI(); 
+    }
 
-        function damageMonster(damage) {
-            if (monster.retreating || isGameOver) return;
-            monster.hp -= damage;
-            
-            monsterElement.classList.add('monster-hit');
-            setTimeout(() => {
-                monsterElement.classList.remove('monster-hit');
-            }, 50);
-            
-            if (monster.hp <= 0) {
-                monster.hp = 0;
-                monster.isAttacking = false;
-                monsterElement.style.opacity = 0;
-                gold += Math.round(monster.maxHp * 0.5); 
-                retreatMonster(); 
-            }
-            updateUI(); // Update HP bar immediately
-        }
-
-        // --- TURRET LOGIC ---
-        let turretIntervals = [];
+    function endGameSequence() {
+        isGameOver = true;
+        monster.isAttacking = false;
+        clearInterval(monsterAttackInterval);
+        turretIntervals.forEach(clearInterval); 
+        doorElement.style.opacity = 0; 
+        showToast("❌ DOOR DESTROYED - GAME OVER", 'danger');
         
-        function updateTurretIntervals() {
-            turretIntervals.forEach(clearInterval);
-            turretIntervals = [];
+        const bedCol = BED_TILE_INDEX % GRID_COLS;
+        const bedRow = Math.floor(BED_TILE_INDEX / GRID_COLS);
+        monsterElement.style.transition = "all 1s";
+        monsterElement.style.top = `${(bedRow * CELL_SIZE) + CELL_SIZE/2}px`;
+        monsterElement.style.left = `${(bedCol * CELL_SIZE) + CELL_SIZE/2}px`;
+    }
 
-            tiles.forEach((tile, index) => {
-                if (tile && tile.type === 'turret') {
-                    const turretStats = STRUCTURES.turret.levels[tile.level - 1];
-                    
-                    // Set up aiming interval only for visual updates (no firing here)
-                    const aimInterval = setInterval(() => {
-                        if (tile.element && monster.isAttacking && !monster.retreating && !isGameOver) {
-                            aimTurret(tile.element);
-                        }
-                    }, 100); 
-                    
-                    const fireInterval = setInterval(() => {
-                        if (monster.isAttacking && !monster.retreating && !isGameOver) {
-                            fireProjectile(index);
-                        }
-                    }, turretStats.fireRate);
-                    
-                    turretIntervals.push(aimInterval);
-                    turretIntervals.push(fireInterval);
-                }
-            });
-        }
-        
-        // FIX: Aim Turret (Bow) function
-        function aimTurret(turretElement) {
-            const turretRect = turretElement.getBoundingClientRect();
-            const containerRect = document.getElementById('game-container').getBoundingClientRect();
-            
-            const turretX = turretRect.left + turretRect.width / 2 - containerRect.left;
-            const turretY = turretRect.top + turretRect.height / 2 - containerRect.top;
-            
-            const monsterX = parseFloat(monsterElement.style.left) || containerRect.width / 2;
-            const monsterY = parseFloat(monsterElement.style.top) || -65;
-            
-            const deltaX = monsterX - turretX;
-            const deltaY = monsterY - turretY;
-            
-            // Calculate angle, rotating the bow tip towards the monster
-            const angleRad = Math.atan2(deltaY, deltaX);
-            const angleDeg = angleRad * (180 / Math.PI);
-            
-            // Adjust angle so the bow tip points *out* (typically 0 degrees is right, so we add 90)
-            const bowRotation = angleDeg; 
-            
-            const bowElement = turretElement.querySelector('.turret-bow');
-            if (bowElement) {
-                bowElement.style.transform = `rotate(${bowRotation}deg)`;
+    let turretIntervals = [];
+    function updateTurretIntervals() {
+        turretIntervals.forEach(clearInterval);
+        turretIntervals = [];
+
+        tiles.forEach((tile, index) => {
+            if (tile && tile.type === 'turret') {
+                const stats = STRUCTURES.turret.levels[tile.level - 1];
+                // Aim
+                turretIntervals.push(setInterval(() => {
+                    if (tile.element && monster.isAttacking && !isGameOver) aimTurret(tile); 
+                }, 30));
+                // Fire
+                turretIntervals.push(setInterval(() => {
+                    if (monster.isAttacking && !isGameOver) fireProjectile(index);
+                }, stats.fireRate));
             }
-        }
+        });
+    }
 
+    function aimTurret(tile) {
+        if (!tile || !tile.element) return;
+        const tRect = tile.element.getBoundingClientRect();
+        const mRect = monsterElement.getBoundingClientRect();
+        const deltaX = mRect.left - tRect.left;
+        const deltaY = mRect.top - tRect.top;
+        tile.currentRotation = (Math.atan2(deltaY, deltaX) * (180/Math.PI)) + 45;
+        const bow = tile.element.querySelector('.turret-bow');
+        if (bow) bow.style.transform = `rotate(${tile.currentRotation}deg)`;
+    }
 
-        // FIX: Projectile is now a diamond emoji and angled
-        function fireProjectile(tileIndex) {
-            const tile = tiles[tileIndex];
-            if (!tile.element) return;
-            
-            const turretStats = STRUCTURES.turret.levels[tile.level - 1];
+    function fireProjectile(index) {
+        const tile = tiles[index];
+        if (!tile.element) return;
+        const stats = STRUCTURES.turret.levels[tile.level - 1];
 
-            const proj = document.createElement('div');
-            proj.className = 'projectile';
-            proj.textContent = '♦️'; // FIX: Changed to Diamond emoji
-            
-            const tileRect = tile.element.getBoundingClientRect();
-            const containerRect = document.getElementById('game-container').getBoundingClientRect();
-
-            const startX = tileRect.left + tileRect.width / 2 - containerRect.left;
-            const startY = tileRect.top + tileRect.height / 2 - containerRect.top;
-            
-            proj.style.left = `${startX}px`;
-            proj.style.top = `${startY}px`;
-            
-            document.getElementById('game-container').appendChild(proj);
-            
-            const monsterX = parseFloat(monsterElement.style.left) || containerRect.width / 2;
-            const monsterY = parseFloat(monsterElement.style.top) || -65;
-            
-            const deltaX = monsterX - startX;
-            const deltaY = monsterY - startY;
-            const angleRad = Math.atan2(deltaY, deltaX);
-            const angleDeg = angleRad * (180 / Math.PI);
-            
-            // Rotate the diamond to point at the monster (0 deg is right)
-            const diamondRotation = angleDeg; 
-
-            setTimeout(() => {
-                proj.style.transform = `rotate(${diamondRotation}deg)`;
-                proj.style.left = `${monsterX}px`;
-                proj.style.top = `${monsterY}px`;
-            }, 10);
-            
-            const damage = turretStats.damage;
-            
-            setTimeout(() => {
-                damageMonster(damage);
-                proj.remove(); 
-            }, 500); 
-        }
-
-        // --- UI / BUILD MODE LOGIC ---
-
-        function updateUI() {
-            // FIX: Add toLocaleString for comma separated numbers
-            uiGold.textContent = gold.toLocaleString();
-            uiPower.textContent = power.toLocaleString();
-            uiWave.textContent = monster.wave;
-            
-            // Monster Stats Display Update
-            monsterDamageDisplay.textContent = monster.attack;
-            monsterWaveDisplay.textContent = monster.wave;
-
-            // Door HP
-            const doorPercent = (door.hp / door.maxHp) * 100;
-            doorHpFillOverlay.style.width = `${doorPercent}%`;
-            doorTooltip.textContent = `Door Lvl ${door.level} (${door.hp.toLocaleString()}/${door.maxHp.toLocaleString()} HP)`;
-            
-            // Monster HP
-            const monsterPercent = (monster.hp / monster.maxHp) * 100;
-            monsterHpFill.style.width = `${monsterPercent}%`;
-
-            renderGrid();
-        }
-
-        function toggleBuildMode() {
-            isBuildMode = !isBuildMode;
-            renderGrid(); 
-            if (isBuildMode) closeMenu(); 
-        }
-
-        document.addEventListener('keydown', (e) => {
-            if ((e.key === 'e' || e.key === 'E') && !isGameOver) {
-                e.preventDefault();
-                toggleBuildMode();
+        // Bank Logic
+        let bankBonus = 0;
+        tiles.forEach(t => {
+            if (t && t.type === 'bank' && !t.isDisabled) {
+                const bankStats = STRUCTURES.bank.levels[t.level - 1];
+                bankBonus += bankStats.multiplier;
             }
         });
 
-        function handleTileClick(index) {
-            if (isGameOver) return;
-            closeMenu();
-            
-            const tile = tiles[index];
+        if (bankBonus > 0) {
+            gold += bankBonus;
+            displayFloatingResourceGroup(tile.element, bankBonus, 0);
+        }
 
+        const proj = document.createElement('div');
+        proj.className = 'projectile';
+        proj.textContent = '♦️'; 
+        
+        const tRect = tile.element.getBoundingClientRect();
+        const cRect = document.getElementById('game-container').getBoundingClientRect();
+        
+        proj.style.left = `${tRect.left + tRect.width/2 - cRect.left}px`;
+        proj.style.top = `${tRect.top + tRect.height/2 - cRect.top}px`;
+        document.getElementById('game-container').appendChild(proj);
+        
+        const mRect = monsterElement.getBoundingClientRect();
+        const destX = mRect.left + mRect.width/2 - cRect.left;
+        const destY = mRect.top + mRect.height/2 - cRect.top;
+        
+        setTimeout(() => {
+            proj.style.transform = `rotate(${Math.atan2(destY - parseFloat(proj.style.top), destX - parseFloat(proj.style.left))*180/Math.PI}deg)`;
+            proj.style.left = `${destX}px`;
+            proj.style.top = `${destY}px`;
+        }, 10);
+        
+        setTimeout(() => { damageMonster(stats.damage); proj.remove(); }, 500); 
+    }
+
+    // --- 9. UI RENDERING ---
+    function updateUI() {
+        if(uiGold) uiGold.textContent = Math.floor(gold).toLocaleString();
+        if(uiPower) uiPower.textContent = Math.floor(power).toLocaleString();
+        if(uiWave) uiWave.textContent = monster.level;
+        if(monsterDamageDisplay) monsterDamageDisplay.textContent = monster.damage;
+        if(monsterWaveDisplay) monsterWaveDisplay.textContent = monster.level;
+
+        const doorPercent = Math.max(0, (door.hp / door.maxHp) * 100);
+        if(doorHpFill) {
+            doorHpFill.style.width = `${doorPercent}%`;
+            doorHpFill.style.backgroundColor = doorPercent > 50 ? '#00ff00' : (doorPercent > 25 ? '#ffff00' : '#ff0000');
+        }
+        if(doorHpText) doorHpText.textContent = `${DOOR_LEVELS[door.level-1].name} (${Math.round(door.hp)}/${door.maxHp})`;
+        if(monsterHpFill) monsterHpFill.style.width = `${Math.max(0, (monster.hp / monster.maxHp) * 100)}%`;
+    }
+
+    function switchTab(tabName) {
+        currentShopTab = tabName;
+        if (isBuildMode) {
+            const menu = document.getElementById('build-menu');
+            const cards = menu.querySelectorAll('.shop-card');
+            cards.forEach(c => c.remove());
+            renderShopItems(menu);
+            const buttons = menu.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => {
+                if(btn.textContent.toLowerCase().includes(tabName)) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+        }
+    }
+
+    function renderShopItems(container) {
+        const filteredItems = SHOP_ITEMS.filter(item => item.category === currentShopTab);
+        if (filteredItems.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'shop-card disabled';
+            empty.innerHTML = `<div style="padding:20px; text-align:center; width:100%; color:#888;">Coming Soon</div>`;
+            container.appendChild(empty);
+            return;
+        }
+
+        filteredItems.forEach(item => {
+            const cost = STRUCTURES[item.type].levels[0].cost;
+            const canAfford = gold >= cost;
+            const card = document.createElement('div');
+            card.className = 'shop-card' + (canAfford ? '' : ' disabled');
+            card.innerHTML = `
+                <div class="card-info"><div class="card-title">${item.name}</div>
+                <div class="card-desc">${item.desc}</div>
+                <div class="card-action"><div class="card-price">${cost} 💰</div>
+                <button class="card-buy-btn">Buy</button></div></div>
+                <div class="card-icon">${item.icon}</div>
+            `;
+            card.onclick = () => { if (canAfford) placeStructure(item.type); };
+            container.appendChild(card);
+        });
+    }
+
+    function showBuildMenu(tileIndex) {
+        currentTileTarget = tileIndex;
+        const menu = document.getElementById('build-menu');
+        menu.innerHTML = ''; 
+        
+        const title = document.createElement('h2');
+        title.style.color = 'white'; title.style.textAlign = 'center'; title.style.marginTop = '0';
+        title.textContent = "Construction";
+        menu.appendChild(title);
+
+        const tabsDiv = document.createElement('div');
+        tabsDiv.className = 'tab-container';
+        ['Default', 'Electrical', 'Special'].forEach(t => {
+            const btn = document.createElement('button');
+            btn.className = 'tab-btn' + (currentShopTab === t.toLowerCase() ? ' active' : '');
+            btn.textContent = t;
+            btn.onclick = () => switchTab(t.toLowerCase());
+            tabsDiv.appendChild(btn);
+        });
+        menu.appendChild(tabsDiv);
+
+        renderShopItems(menu);
+
+        const cBtn = document.createElement('button');
+        cBtn.textContent = "Cancel"; cBtn.style.width = "100%"; cBtn.style.padding = "10px";
+        cBtn.style.background = "#d9534f"; cBtn.style.border = "none"; cBtn.style.color = "white";
+        cBtn.style.borderRadius = "5px"; cBtn.style.marginTop = "10px"; cBtn.style.cursor = "pointer";
+        cBtn.onclick = closeMenu;
+        menu.appendChild(cBtn);
+
+        if(document.getElementById('menu-overlay')) document.getElementById('menu-overlay').style.display = 'block';
+        menu.style.display = 'block';
+        document.getElementById('action-menu').style.display = 'none';
+    }
+
+    function placeStructure(type) {
+        const blueprint = STRUCTURES[type];
+        const cost = blueprint.levels[0].cost; 
+        if (gold >= cost) {
+            gold -= cost;
+            const stats = blueprint.levels[0];
+            tiles[currentTileTarget] = {
+                type: type, level: 1, cost: cost, 
+                goldEffect: stats.goldGen || 0, powerEffect: stats.powerGen || 0,
+                isDisabled: false, element: null 
+            };
+            closeMenu(); renderGrid(); updateTurretIntervals(); updateUI(); toggleBuildMode(); 
+        }
+    }
+
+    function showActionMenu(target, type, tileIndex = null) {
+        currentTileTarget = target; currentTileTarget.tileIndex = tileIndex; 
+        const blueprint = STRUCTURES[type];
+        
+        document.getElementById('menu-title').textContent = `${blueprint.icon} Level ${target.level}`;
+        
+        const isMax = target.level >= blueprint.levels.length;
+        const nextStats = isMax ? null : blueprint.levels[target.level];
+        const cost = isMax ? 0 : nextStats.cost;
+        
+        let info = "";
+        if (type === 'bank') info = `Bonus: ${blueprint.levels[target.level-1].multiplier}x 💰 | Drain: ${blueprint.levels[target.level-1].powerDrain}kW`;
+        else if (isMax) info = "MAX LEVEL";
+        else info = `Next: Level ${target.level+1}`;
+
+        document.getElementById('menu-info').textContent = info;
+
+        upgradeBtn.textContent = isMax ? "Maxed" : `Upgrade (${cost}💰)`;
+        upgradeBtn.className = (isMax || gold < cost) ? 'disabled-btn' : '';
+        
+        const isVital = type === 'bed' || type === 'door';
+        sellBtn.textContent = isVital ? 'Cannot Sell' : `Sell (${Math.floor(blueprint.levels[target.level-1].cost/2)}💰)`;
+        sellBtn.className = isVital ? 'disabled-btn' : '';
+        
+        if(document.getElementById('menu-overlay')) document.getElementById('menu-overlay').style.display = 'flex';
+        document.getElementById('action-menu').style.display = 'block';
+        document.getElementById('build-menu').style.display = 'none';
+    }
+
+    function upgradeStructure() {
+        const target = currentTileTarget;
+        const blueprint = STRUCTURES[target.type];
+        if (target.level >= blueprint.levels.length) return;
+        const nextStats = blueprint.levels[target.level];
+        if (gold >= nextStats.cost) {
+            gold -= nextStats.cost;
+            target.level++;
+            if (target.type === 'door') {
+                door.maxHp = nextStats.health; door.hp = door.maxHp; updateDoorVisuals();
+            } else {
+                Object.assign(target, { 
+                    goldEffect: nextStats.goldGen||0, powerEffect: nextStats.powerGen||0
+                });
+                if (target.type === 'turret') updateTurretIntervals();
+            }
+            closeMenu(); renderGrid(); updateUI();
+        }
+    }
+
+    function sellStructure() {
+        if (currentTileTarget.type === 'bed' || currentTileTarget.type === 'door') return;
+        gold += Math.floor(STRUCTURES[currentTileTarget.type].levels[currentTileTarget.level-1].cost/2);
+        tiles[currentTileTarget.tileIndex] = null;
+        closeMenu(); renderGrid(); updateTurretIntervals(); updateUI();
+    }
+
+    function closeMenu() {
+        if(document.getElementById('menu-overlay')) document.getElementById('menu-overlay').style.display = 'none';
+        document.getElementById('action-menu').style.display = 'none';
+        document.getElementById('build-menu').style.display = 'none';
+        currentTileTarget = null;
+    }
+
+    function toggleBuildMode() {
+        isBuildMode = !isBuildMode; renderGrid(); 
+        if (isBuildMode) closeMenu(); 
+    }
+
+    function handleTileClick(index) {
+        if (isGameOver) return;
+        closeMenu();
+        if (tiles[index]) showActionMenu(tiles[index], tiles[index].type, index);
+        else if (isBuildMode) showBuildMenu(index);
+    }
+
+    function renderGrid() {
+        if(!gridElement) return;
+        gridElement.innerHTML = '';
+        tiles.forEach((tile, index) => {
+            const div = document.createElement('div');
+            div.className = 'grid-tile tooltip-container';
+            div.onclick = () => handleTileClick(index);
+            
             if (tile) {
-                showActionMenu(tile, tile.type, index);
-            } else if (isBuildMode) {
-                showBuildMenu(index);
-            } 
-        }
-        
-        function handleDoorClick() {
-            if (isGameOver) return;
-            closeMenu();
-            showActionMenu(door, 'door', 'door');
-        }
-
-        // --- UPGRADE/SELL LOGIC (Retained) ---
-        function showBuildMenu(tileIndex) {
-            currentTileTarget = tileIndex;
-            document.getElementById('build-menu').querySelector('button[data-cost="100"]').classList.toggle('disabled-btn', gold < 100);
-            document.getElementById('build-menu').querySelector('button[data-cost="150"]').classList.toggle('disabled-btn', gold < 150);
-
-            document.getElementById('menu-overlay').style.display = 'flex';
-            document.getElementById('build-menu').style.display = 'block';
-            document.getElementById('action-menu').style.display = 'none';
-        }
-
-        function placeStructure(type) {
-            const blueprint = STRUCTURES[type];
-            const cost = blueprint.levels[0].cost; 
-
-            if (gold >= cost) {
-                gold -= cost;
+                const bp = STRUCTURES[tile.type];
+                const nextCost = tile.level < bp.levels.length ? bp.levels[tile.level].cost : 999999;
+                if (gold >= nextCost) div.classList.add('upgrade-available');
                 
-                let stats = blueprint.levels[0];
-                let newTile = {
-                    type: type, level: 1, cost: cost, 
-                    goldEffect: stats.goldGen || 0, powerEffect: stats.powerGen || 0,
-                    damage: stats.damage || 0, fireRate: stats.fireRate || 0,
-                    element: null 
-                };
-                
-                tiles[currentTileTarget] = newTile;
-                
-                closeMenu();
-                renderGrid();
-                updateTurretIntervals(); 
-                updateUI();
-                toggleBuildMode(); 
-            } else {
-                alert("Not enough gold!");
-            }
-        }
-        
-        function showActionMenu(target, type, tileIndex = null) {
-            currentTileTarget = target;
-            currentTileTarget.tileIndex = tileIndex; 
-            
-            const blueprint = STRUCTURES[type];
-            const maxLevel = blueprint.levels.length;
-            
-            document.getElementById('menu-title').textContent = `${blueprint.icon} ${type.charAt(0).toUpperCase() + type.slice(1)} - Level ${target.level}`;
-            
-            const isMaxLevel = target.level >= maxLevel;
-            const nextLevelIndex = target.level; 
-
-            let nextCost = 0;
-            if (!isMaxLevel) {
-                 nextCost = blueprint.levels[nextLevelIndex].cost;
-            }
-            
-            let infoText = "";
-            const currentStats = blueprint.levels[target.level - 1];
-
-            if (type === 'door') {
-                const nextStats = isMaxLevel ? null : DOOR_LEVELS[nextLevelIndex];
-                infoText = `Current HP: ${target.maxHp.toLocaleString()}. Next HP: ${nextStats ? nextStats.health.toLocaleString() : 'MAX'}`;
-            } else if (type === 'turret') {
-                const nextStats = isMaxLevel ? null : TURRET_LEVELS[nextLevelIndex];
-                infoText = `Current Dmg: ${currentStats.damage}, Rate: ${(1000/currentStats.fireRate).toFixed(1)}/s. Next Dmg: ${nextStats ? nextStats.damage : 'MAX'}`;
-            } else { 
-                const nextStats = isMaxLevel ? null : blueprint.levels[nextLevelIndex];
-                infoText = `Current Gen: ${currentStats.goldGen}💰/${currentStats.powerGen}⚡. Next Gen: ${nextStats ? nextStats.goldGen : 'MAX'}💰/${nextStats ? nextStats.powerGen : 'MAX'}⚡`;
-            }
-            document.getElementById('menu-info').textContent = infoText;
-
-            if (isMaxLevel) {
-                 upgradeBtn.textContent = "MAX LEVEL";
-                 upgradeBtn.classList.add('disabled-btn');
-            } else {
-                upgradeBtn.textContent = `Upgrade (${nextCost.toLocaleString()}💰)`;
-                upgradeBtn.classList.remove('disabled-btn');
-                upgradeBtn.classList.toggle('disabled-btn', gold < nextCost);
-            }
-            
-            const isBed = type === 'bed';
-            const isDoor = type === 'door';
-            sellBtn.textContent = isDoor || isBed ? 'Cannot Sell' : `Sell (${Math.floor(blueprint.levels[target.level - 1].cost / 2).toLocaleString()}💰)`;
-            sellBtn.classList.toggle('disabled-btn', isDoor || isBed);
-            
-            document.getElementById('menu-overlay').style.display = 'flex';
-            document.getElementById('action-menu').style.display = 'block';
-            document.getElementById('build-menu').style.display = 'none';
-        }
-
-        function upgradeStructure() {
-            const target = currentTileTarget;
-            const type = target.type; 
-            const isDoor = type === 'door';
-            const blueprint = STRUCTURES[type];
-            const maxLevel = blueprint.levels.length;
-            const nextLevelIndex = target.level; 
-
-            if (target.level >= maxLevel) return;
-
-            const nextStats = blueprint.levels[nextLevelIndex];
-            const cost = nextStats.cost;
-
-            if (gold >= cost) {
-                gold -= cost;
-                target.level++;
-
-                if (isDoor) {
-                    door.maxHp = nextStats.health;
-                    door.hp = door.maxHp; 
-                    door.upgradeCost = nextLevelIndex + 1 < maxLevel ? blueprint.levels[nextLevelIndex + 1].cost : 0;
-                    monster.attack = nextStats.baseAttack; 
-                } else {
-                    target.cost = nextStats.cost; 
-                    target.goldEffect = nextStats.goldGen || 0;
-                    target.powerEffect = nextStats.powerGen || 0;
-                    target.damage = nextStats.damage || 0;
-                    target.fireRate = nextStats.fireRate || 0;
-                    
-                    if (type === 'turret') {
-                        updateTurretIntervals();
-                    }
+                if (tile.isDisabled) {
+                    div.classList.add('shutdown');
+                    div.innerHTML = `<div class="shutdown-icon">⚠️</div>`;
                 }
+
+                let icon = bp.icon;
+                if (tile.type === 'turret') icon = `<span class="turret-bow" style="display:inline-block; transition:none; transform: rotate(${tile.currentRotation||0}deg)">${bp.icon}</span>`;
                 
-                closeMenu();
-                renderGrid(); 
-                updateUI();
-            } else {
-                alert("Not enough gold!");
+                div.innerHTML += `<span class="structure-icon">${icon}</span><span class="info-tooltip">${bp.icon} Lvl ${tile.level}</span>`;
+                tile.element = div;
             }
-        }
+            if (isBuildMode) {
+                div.classList.add('grid-visual-on');
+                if (!tile) div.innerHTML = '<div class="build-plus">+</div>';
+            }
+            gridElement.appendChild(div);
+        });
+    }
 
-        function sellStructure() {
-            const target = currentTileTarget;
-            if (target.type === 'bed' || target.type === 'door') return;
-            
-            const cost = STRUCTURES[target.type].levels[target.level - 1].cost;
-            const sellValue = Math.floor(cost / 2);
-            gold += sellValue;
-            
-            tiles[target.tileIndex] = null;
-            
-            closeMenu();
-            renderGrid();
-            updateTurretIntervals();
-            updateUI();
-        }
+    // --- 10. INITIALIZATION ---
+    document.addEventListener('keydown', e => { if(e.key==='e'||e.key==='E') toggleBuildMode(); });
+    if(doorElement) doorElement.onclick = () => showActionMenu(door, 'door');
+    if(upgradeBtn) upgradeBtn.onclick = upgradeStructure; 
+    if(sellBtn) sellBtn.onclick = sellStructure; 
+    if(closeBtn) closeBtn.onclick = closeMenu;
 
-        function closeMenu() {
-            document.getElementById('menu-overlay').style.display = 'none';
-            currentTileTarget = null;
-        }
+    function startWave() {
+        if (isGameOver) return;
+        const stats = MONSTER_LEVELS[Math.min(monster.level-1, MONSTER_LEVELS.length-1)];
+        Object.assign(monster, { hp: stats.hp, maxHp: stats.hp, damage: stats.damage, attackRate: stats.attackRate, isAttacking: true });
         
-        function isUpgradableAndAffordable(type, currentLevel) {
-            const blueprint = STRUCTURES[type];
-            const maxLevel = blueprint.levels.length;
+        monsterElement.style.opacity = 1;
+        monsterElement.style.top = `calc(0px - 120px)`; 
+        monsterElement.style.left = '50%'; monsterElement.style.transform = 'translateX(-50%)'; 
+        startMonsterAttack(); updateUI();
+    }
 
-            if (currentLevel >= maxLevel) return false;
-
-            const nextLevelIndex = currentLevel;
-            const cost = blueprint.levels[nextLevelIndex].cost;
-
-            return gold >= cost;
-        }
-
-        // --- INITIALIZATION ---
-
-        function renderGrid() {
-            gridElement.innerHTML = '';
-            
-            // Door upgrade cue check
-            if (isUpgradableAndAffordable('door', door.level)) {
-                doorElement.classList.add('upgrade-available');
-            } else {
-                doorElement.classList.remove('upgrade-available');
-            }
-
-
-            for(let index = 0; index < TILE_COUNT; index++) {
-                const tileElement = document.createElement('div');
-                tileElement.className = 'grid-tile tooltip-container';
-                tileElement.setAttribute('data-index', index);
-                tileElement.onclick = () => handleTileClick(index);
-                
-                const tile = tiles[index];
-                
-                if (tile) {
-                    const blueprint = STRUCTURES[tile.type];
-                    
-                    if (isUpgradableAndAffordable(tile.type, tile.level)) {
-                        tileElement.classList.add('upgrade-available');
-                    } else {
-                         tileElement.classList.remove('upgrade-available');
-                    }
-
-                    // Render structure content
-                    let iconHTML = blueprint.icon;
-                    if (tile.type === 'turret') {
-                        // Wrap turret icon in a span for rotation/aiming
-                        iconHTML = `<span class="turret-bow">${blueprint.icon}</span>`;
-                    }
-                    
-                    tileElement.innerHTML = `
-                        <span class="structure-icon">${iconHTML}</span>
-                        <span class="info-tooltip">${blueprint.icon} Lvl ${tile.level}</span>
-                    `;
-                    tile.element = tileElement; 
-                    
-                    // If turret, ensure it aims immediately on re-render
-                    if (tile.type === 'turret' && monster.isAttacking) {
-                        aimTurret(tileElement);
-                    }
-                }
-                
-                if (isBuildMode) {
-                    tileElement.classList.add('grid-visual-on');
-                    if (!tile) {
-                        const plus = document.createElement('div');
-                        plus.className = 'build-plus';
-                        plus.textContent = '+';
-                        tileElement.appendChild(plus);
-                    }
-                }
-                
-                gridElement.appendChild(tileElement);
-            }
-        }
-        
-        // Connect event handlers
-        document.getElementById('door').onclick = handleDoorClick;
-        document.getElementById('door-hp-visual').onclick = handleDoorClick; 
-        upgradeBtn.onclick = upgradeStructure;
-        sellBtn.onclick = sellStructure;
-        closeBtn.onclick = closeMenu; 
-
-        function startWave() {
-            if (isGameOver) return;
-            monster.isAttacking = true;
-            monster.retreating = false;
-            monster.hp = monster.maxHp;
-            monsterElement.style.opacity = 1;
-            // Reset monster position further away from door
-            monsterElement.style.top = `calc(0px - 60px - 30px)`; 
-            monsterElement.style.left = '50%';
-            monsterElement.style.transform = 'translateX(-50%)'; 
-            startMonsterAttack();
-        }
-
-        // Final Setup
-        renderGrid();
-        updateUI();
-        startWave();
-        updateTurretIntervals();
-    </script>
+    // Initial Runs
+    updateDoorVisuals(); 
+    renderGrid(); 
+    updateUI(); 
+    startWave(); 
+    updateTurretIntervals();
+</script>
 </body>
 </html>
