@@ -348,9 +348,8 @@
     </div>
 
     <script>
-    // --- 1. ROBUST UI INJECTION (CRASH FIX) ---
-    // This section ensures all necessary UI elements exist before the game starts.
-
+    // --- 1. ROBUST UI INJECTION & GRAPH SETUP ---
+    
     // A. Action Menu (Upgrade Popup)
     if (!document.getElementById('action-menu')) {
         const menuDiv = document.createElement('div');
@@ -368,17 +367,16 @@
         document.body.appendChild(menuDiv);
     }
 
-    // B. Power Usage Display (KW Monitor)
-    // We attach this relative to 'power-amount' so it doesn't crash if a 'stats' container is missing.
-    if (!document.getElementById('power-usage-display')) {
-        const pAmount = document.getElementById('power-amount');
-        if (pAmount && pAmount.parentNode) {
-            const usageDiv = document.createElement('div');
-            usageDiv.id = 'power-usage-display';
-            usageDiv.innerHTML = `⚡ Load: <span id="kw-value">0</span> kW`;
-            usageDiv.style.cssText = "color: #ff4444; font-size: 14px; margin-top: 5px; font-weight:bold; text-shadow: 1px 1px 0 #000;";
-            pAmount.parentNode.appendChild(usageDiv);
-        }
+    // B. Power Usage Graph & Display
+    if (!document.getElementById('energy-monitor-container')) {
+        const monitorDiv = document.createElement('div');
+        monitorDiv.id = 'energy-monitor-container';
+        monitorDiv.innerHTML = `
+            <div class="monitor-label">GRID LOAD (kW)</div>
+            <canvas id="energy-graph" width="140" height="40"></canvas>
+            <div id="kw-readout">0.0 kW</div>
+        `;
+        document.body.appendChild(monitorDiv);
     }
 
     // C. Door HP Bar
@@ -399,6 +397,27 @@
     // --- 2. CSS STYLES ---
     const styleFix = document.createElement('style');
     styleFix.innerHTML = `
+        /* --- ENERGY GRAPH CONTAINER --- */
+        #energy-monitor-container {
+            position: fixed;
+            top: 10px;
+            left: 220px; /* Positioned to the right of the default top-left stats box */
+            width: 150px;
+            height: 70px;
+            background: #111;
+            border: 2px solid #555;
+            border-radius: 6px;
+            padding: 5px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .monitor-label { font-size: 10px; color: #888; letter-spacing: 1px; width: 100%; text-align: left; margin-bottom: 2px; }
+        #energy-graph { background: #000; border: 1px solid #333; }
+        #kw-readout { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 12px; margin-top: 2px; width: 100%; text-align: right; }
+
         /* TABS */
         .tab-container { display: flex; justify-content: space-between; margin-bottom: 10px; background: #222; padding: 5px; border-radius: 8px; }
         .tab-btn {
@@ -590,6 +609,9 @@
     let isGameOver = false; 
     let currentShopTab = 'default';
 
+    // Graph Data
+    const graphHistory = Array(30).fill(0); // Store last 30 ticks
+    
     let door = { type: 'door', level: 1, hp: DOOR_LEVELS[0].health, maxHp: DOOR_LEVELS[0].health };
     let monster = { level: 1, hp: 500, maxHp: 500, damage: 5, attackRate: 1500, isAttacking: true };
     let currentTileTarget = null; 
@@ -605,7 +627,10 @@
     // --- 5. DOM REFERENCES ---
     const uiGold = document.getElementById('gold-amount');
     const uiPower = document.getElementById('power-amount');
-    const uiKwDisplay = document.getElementById('kw-value'); // Might be null if script above failed, but we handled it
+    const uiKwReadout = document.getElementById('kw-readout');
+    const graphCanvas = document.getElementById('energy-graph');
+    const ctx = graphCanvas ? graphCanvas.getContext('2d') : null;
+
     const uiWave = document.getElementById('wave-count');
     const monsterDamageDisplay = document.getElementById('monster-damage');
     const monsterWaveDisplay = document.getElementById('monster-wave');
@@ -673,9 +698,54 @@
         setTimeout(() => group.remove(), 1000); 
     }
 
+    function drawEnergyGraph(currentLoad) {
+        if (!ctx) return;
+        
+        // Update History
+        graphHistory.shift();
+        graphHistory.push(currentLoad);
+
+        // Clear
+        const w = graphCanvas.width;
+        const h = graphCanvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        // Find scale (max value in history or at least 10)
+        const maxVal = Math.max(10, ...graphHistory);
+        
+        ctx.beginPath();
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 2;
+        ctx.fillStyle = 'rgba(255, 68, 68, 0.2)';
+
+        // Draw Line
+        const step = w / (graphHistory.length - 1);
+        ctx.moveTo(0, h - (graphHistory[0] / maxVal) * h);
+
+        for(let i = 1; i < graphHistory.length; i++) {
+            const x = i * step;
+            const y = h - (graphHistory[i] / maxVal) * h;
+            ctx.lineTo(x, y);
+        }
+
+        // Fill Area
+        ctx.stroke();
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.fill();
+
+        // Draw Grid Lines (visual flair)
+        ctx.beginPath();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.moveTo(0, h/2);
+        ctx.lineTo(w, h/2);
+        ctx.stroke();
+    }
+
     // --- 7. GAME LOOPS ---
     
-    // Resource Income Loop
+    // Resource Income Loop & Passive Regen
     setInterval(() => {
         if (isGameOver) return;
         let goldIncome = 0; 
@@ -693,10 +763,17 @@
         });
         gold += goldIncome;
         power += powerIncome;
+
+        // --- NEW: DOOR REGEN (2% per sec) ---
+        if (door.hp < door.maxHp && door.hp > 0) {
+            const healAmount = door.maxHp * 0.02;
+            door.hp = Math.min(door.maxHp, door.hp + healAmount);
+        }
+
         updateUI();
     }, 1000);
 
-    // Power Consumption Loop
+    // Power Consumption Loop (Logic + Graph Update)
     setInterval(() => {
         if (isGameOver) return;
         
@@ -711,11 +788,13 @@
             }
         });
 
-        // Safe update of KW Display
-        if(document.getElementById('kw-value')) {
-            const jitter = totalDrain > 0 ? (Math.random() * 0.2 - 0.1) : 0;
-            document.getElementById('kw-value').textContent = (totalDrain + jitter).toFixed(1);
-        }
+        // Jitter for realism
+        const jitter = totalDrain > 0 ? (Math.random() * 0.5 - 0.25) : 0;
+        const displayVal = Math.max(0, totalDrain + jitter);
+        
+        // Update Graph & Text
+        drawEnergyGraph(displayVal);
+        if(uiKwReadout) uiKwReadout.textContent = displayVal.toFixed(1) + " kW";
 
         if (totalDrain > 0) {
             if (power >= totalDrain) {
