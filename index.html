@@ -348,26 +348,29 @@
     </div>
 
     <script>
-    // --- 1. ROBUST UI INJECTION & GRAPH SETUP ---
+    // --- 1. UI INJECTION & SETUP ---
     
-    // A. Action Menu (Upgrade Popup)
+    // A. Action Menu (Horror Style)
     if (!document.getElementById('action-menu')) {
         const menuDiv = document.createElement('div');
         menuDiv.id = 'action-menu';
+        menuDiv.className = 'horror-menu';
         menuDiv.innerHTML = `
-            <div id="menu-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1999;"></div>
-            <h2 id="menu-title">Level 1</h2>
-            <div id="menu-info">Stats here</div>
-            <div class="action-btn-group">
-                <button id="upgrade-btn">Upgrade</button>
-                <button id="sell-btn">Sell</button>
-                <button id="close-btn">Close</button>
+            <div id="menu-overlay"></div>
+            <div class="menu-content">
+                <h2 id="menu-title">STRUCTURE_DATA</h2>
+                <div id="menu-info">...analyzing...</div>
+                <div class="action-btn-group">
+                    <button id="upgrade-btn" class="horror-btn">UPGRADE</button>
+                    <button id="sell-btn" class="horror-btn danger">DISMANTLE</button>
+                    <button id="close-btn" class="horror-btn neutral">LEAVE</button>
+                </div>
             </div>
         `;
         document.body.appendChild(menuDiv);
     }
 
-    // B. Power Usage Graph & Display
+    // B. Power Usage Graph
     if (!document.getElementById('energy-monitor-container')) {
         const monitorDiv = document.createElement('div');
         monitorDiv.id = 'energy-monitor-container';
@@ -394,180 +397,239 @@
         document.body.appendChild(toastDiv);
     }
 
+    // E. Build Menu Container
+    if (!document.getElementById('build-menu')) {
+        const buildMenuDiv = document.createElement('div');
+        buildMenuDiv.id = 'build-menu';
+        document.body.appendChild(buildMenuDiv);
+    }
+
     // --- 2. CSS STYLES ---
     const styleFix = document.createElement('style');
     styleFix.innerHTML = `
-        /* --- ENERGY GRAPH CONTAINER --- */
-        #energy-monitor-container {
-            position: fixed;
-            top: 10px;
-            left: 220px;
-            width: 150px;
-            height: 70px;
-            background: #111;
-            border: 2px solid #555;
-            border-radius: 6px;
-            padding: 5px;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-        }
-        .monitor-label { font-size: 10px; color: #888; letter-spacing: 1px; width: 100%; text-align: left; margin-bottom: 2px; }
-        #energy-graph { background: #000; border: 1px solid #333; }
-        #kw-readout { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 12px; margin-top: 2px; width: 100%; text-align: right; }
+        body { font-family: 'Courier New', Courier, monospace; background: #050505; color: #dcdcdc; overflow: hidden; }
 
-        /* WRENCH ANIMATION */
-        @keyframes wrenchPulse {
-            0% { transform: scale(1); text-shadow: 0 0 0px rgba(255, 215, 0, 0); }
-            50% { transform: scale(1.2); text-shadow: 0 0 15px rgba(255, 215, 0, 0.8); }
-            100% { transform: scale(1); text-shadow: 0 0 0px rgba(255, 215, 0, 0); }
+        /* --- HORROR MENU --- */
+        #action-menu {
+            display: none; position: fixed; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%); width: 320px; 
+            z-index: 10000 !important;
         }
-        .wrench-anim { display: inline-block; animation: wrenchPulse 1.5s infinite ease-in-out; }
-        .grid-tile.shutdown .wrench-anim { animation: none; filter: grayscale(100%); opacity: 0.5; }
+        .menu-content {
+            background: #1a1a1a;
+            border: 4px double #5c4033;
+            box-shadow: 0 0 30px #000, inset 0 0 50px rgba(0,0,0,0.8);
+            padding: 20px; text-align: center; color: #dcdcdc;
+            position: relative; z-index: 10001;
+        }
+        .menu-content::before {
+            content: ''; position: absolute; top: 2px; left: 2px; right: 2px; bottom: 2px;
+            border: 1px dashed #3a3a3a; pointer-events: none;
+        }
+        #menu-overlay { 
+            position:fixed; top:0; left:0; width:100vw; height:100vh; 
+            background:rgba(0,0,0,0.7); z-index: 9999 !important; 
+        }
+        #menu-title { 
+            margin-top: 0; font-size: 22px; color: #b8860b; 
+            text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #444; padding-bottom: 10px;
+        }
+        #menu-info { margin-bottom: 20px; color: #888; font-size: 14px; font-style: italic; }
+        .action-btn-group { display: flex; flex-direction: column; gap: 15px; }
+        
+        .horror-btn {
+            width: 100%; padding: 12px; border: 2px solid #444;
+            background: #222; color: #aaa;
+            font-family: 'Courier New', monospace; font-size: 16px; font-weight: bold;
+            cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
+            transition: all 0.1s; position: relative; overflow: hidden;
+        }
+        .horror-btn:hover { color: #fff; border-color: #666; background: #2a2a2a; }
+        .horror-btn:active { transform: scale(0.98); }
+        .horror-btn#upgrade-btn { border-color: #2e8b57; color: #8fbc8f; background: rgba(46, 139, 87, 0.1); }
+        .horror-btn#upgrade-btn:hover { background: rgba(46, 139, 87, 0.3); box-shadow: 0 0 10px #2e8b57; }
+        .horror-btn.danger { border-color: #8b0000; color: #cd5c5c; background: rgba(139, 0, 0, 0.1); }
+        .horror-btn.disabled-btn { opacity: 0.3; cursor: not-allowed; pointer-events: none; filter: grayscale(100%); }
 
-        /* LASER ANIMATION & BEAM */
-        .laser-wrapper { display: inline-block; position: relative; width: 100%; height: 100%; }
-        .laser-icon { font-size: 40px; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); line-height: 1; }
-        .laser-glow-tip {
-            position: absolute;
-            top: 5px; right: 5px; /* Approximate tip of the wand emoji */
-            width: 8px; height: 8px;
-            background: radial-gradient(circle, #fff, transparent);
-            border-radius: 50%;
-            opacity: 0;
-            pointer-events: none;
-            box-shadow: 0 0 5px #fff;
-            transition: transform 0.1s linear, opacity 0.1s;
-        }
-        .laser-beam-line {
-            position: absolute;
-            transform-origin: 0 50%;
-            z-index: 500;
-            pointer-events: none;
-            box-shadow: 0 0 15px currentColor;
-            opacity: 1;
-            transition: opacity 0.4s ease-out;
+        /* --- BUILD MENU --- */
+        #build-menu {
+            display: none; position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); width: 450px; max-height: 80vh;
+            background: #111; border: 2px solid #444;
+            box-shadow: 0 0 50px rgba(0,0,0,0.9); 
+            z-index: 10000 !important;
+            overflow-y: auto; padding: 15px; scrollbar-width: none;
         }
 
-        /* TABS */
-        .tab-container { display: flex; justify-content: space-between; margin-bottom: 10px; background: #222; padding: 5px; border-radius: 8px; }
+        /* --- TABS --- */
+        .tab-container {
+            display: flex; gap: 4px; margin-bottom: 15px; border-bottom: 2px solid #444; padding-left: 5px;
+        }
         .tab-btn {
-            flex: 1; background: transparent; border: none; color: #888; 
-            padding: 8px; cursor: pointer; font-weight: bold; border-bottom: 2px solid transparent;
+            background: #222; border: 1px solid #444; border-bottom: none;
+            color: #777; padding: 8px 16px; cursor: pointer;
+            font-family: 'Courier New', monospace; font-weight: bold;
+            border-radius: 4px 4px 0 0; transition: all 0.2s;
         }
-        .tab-btn.active { color: white; border-bottom: 2px solid #ffd700; }
-        .tab-btn:hover { color: #ccc; }
+        .tab-btn:hover { background: #333; color: #aaa; }
+        .tab-btn.active {
+            background: #444; color: #ffd700; border-color: #ffd700;
+            transform: translateY(2px);
+        }
 
-        /* SHUTDOWN STATE */
-        .grid-tile.shutdown { opacity: 0.6; filter: grayscale(80%); border: 2px solid #ff0000; }
+        /* --- SHOP CARDS --- */
+        .shop-card {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #1a1a1a; margin-bottom: 12px; border: 1px solid #333;
+            padding: 12px; min-height: 80px; transition: transform 0.1s;
+        }
+        .shop-card:hover { border-color: #b8860b; background: #222; }
+        .shop-card.disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+        
+        .shop-left {
+            display: flex; flex-direction: column; align-items: flex-start; 
+            text-align: left; flex: 1; padding-right: 10px;
+        }
+        .card-title { font-size: 16px; font-weight: bold; color: #dcdcdc; margin-bottom: 4px; }
+        .card-desc { font-size: 11px; color: #888; margin-bottom: 8px; font-style: italic; }
+        .card-price { color: #ffd700; font-weight: bold; font-size: 14px; }
+        
+        .shop-right {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-width: 90px;
+        }
+        .card-icon { font-size: 32px; margin-bottom: 6px; }
+        .card-buy-btn { 
+            background: #333; border: 1px solid #555; color: #fff; 
+            padding: 6px 10px; cursor: pointer; font-size: 11px; 
+            font-family: 'Courier New', monospace; font-weight: bold;
+            width: 100%; text-transform: uppercase;
+        }
+        .card-buy-btn:hover { background: #444; border-color: #fff; color: #ffd700; }
+
+        /* --- GRID & ANIMATIONS --- */
+        .grid-tile { 
+            transition: background 0.2s, opacity 0.2s; 
+            cursor: pointer; 
+            position: relative;
+            z-index: 10; /* Ensure clickable */
+            pointer-events: auto; /* Force clickable */
+        }
+        .grid-tile:hover { border-color: #555; }
+        .grid-tile.upgrade-mode { box-shadow: inset 0 0 15px rgba(255, 215, 0, 0.3); border: 1px solid rgba(255, 215, 0, 0.5) !important; }
+        .grid-tile.sell-mode { box-shadow: inset 0 0 15px rgba(255, 0, 0, 0.3); border: 1px solid rgba(255, 0, 0, 0.5) !important; }
+
+        /* Sell Animation: Fade out & Red Tint */
+        .selling-anim {
+            animation: sellFade 0.3s ease-out forwards;
+            pointer-events: none;
+        }
+        @keyframes sellFade {
+            0% { transform: scale(1); opacity: 1; filter: sepia(0) saturate(1); }
+            50% { background-color: #500; }
+            100% { transform: scale(0.8); opacity: 0; filter: sepia(1) saturate(5) hue-rotate(-50deg); }
+        }
+
+        /* Upgrade Particle */
+        .upgrade-particle {
+            position: absolute; font-size: 18px; color: #00ff00; font-weight: bold;
+            pointer-events: none; z-index: 200;
+            animation: floatUpFade 0.8s ease-out forwards;
+        }
+        @keyframes floatUpFade {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+            100% { transform: translate(-50%, -60px) scale(1.2); opacity: 0; }
+        }
+
+        .solar-active { position: relative; overflow: hidden; }
+        .solar-active::after {
+            content: ""; position: absolute; top: 0; left: -150%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transform: skewX(-25deg); animation: sunBeam 3s infinite linear; pointer-events: none;
+        }
+        @keyframes sunBeam { 0% { left: -150%; } 100% { left: 150%; } }
+
+        .bank-coin {
+            position: absolute; font-size: 16px; opacity: 0; pointer-events: none;
+            animation: floatCoin 2s ease-out forwards; z-index: 50;
+        }
+        @keyframes floatCoin {
+            0% { transform: translate(-50%, 0) scale(0.8); opacity: 0.6; }
+            50% { transform: translate(-40%, -25px) scale(1.1); opacity: 0.5; }
+            100% { transform: translate(-50%, -40px) scale(0.9); opacity: 0; }
+        }
+
+        .repair-particle {
+            position: absolute; color: #00ff00; font-weight: bold; font-size: 14px;
+            pointer-events: none; animation: repairFloat 1s ease-out forwards; z-index: 100;
+        }
+        @keyframes repairFloat {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+            100% { transform: translate(var(--rx), var(--ry)) scale(1.2); opacity: 0; }
+        }
+
+        /* --- ENERGY MONITOR --- */
+        #energy-monitor-container {
+            position: fixed; top: 10px; left: 220px; width: 150px; height: 70px;
+            background: #000; border: 1px solid #333; padding: 5px; z-index: 1000; 
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .monitor-label { font-size: 10px; color: #666; width: 100%; text-align: left; }
+        #energy-graph { background: #080808; border: 1px solid #222; }
+        #kw-readout { color: #a00; font-weight: bold; font-size: 12px; margin-top: 2px; width: 100%; text-align: right; }
+
+        /* --- DOOR SHAKE --- */
+        @keyframes shakeDoor {
+            0% { transform: translateX(-50%) translate(0, 0); }
+            20% { transform: translateX(-50%) translate(-3px, 3px); }
+            40% { transform: translateX(-50%) translate(3px, -3px); }
+            60% { transform: translateX(-50%) translate(-3px, -3px); }
+            80% { transform: translateX(-50%) translate(3px, 3px); }
+            100% { transform: translateX(-50%) translate(0, 0); }
+        }
+        .door-shake { animation: shakeDoor 0.2s ease-in-out; }
+
+        .laser-beam-line {
+            position: absolute; transform-origin: 0 50%; z-index: 500; pointer-events: none;
+            box-shadow: 0 0 15px currentColor; opacity: 1; transition: opacity 0.4s ease-out;
+        }
+        .grid-tile.shutdown { border: 2px solid #ff0000 !important; filter: grayscale(100%); }
         .shutdown-icon {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             font-size: 24px; animation: blinkWarning 1s infinite; pointer-events: none; z-index: 10;
         }
         @keyframes blinkWarning { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-        /* POWER DRAIN ANIMATION */
-        .power-drain-text {
-            position: absolute; color: #ff4444; font-weight: bold; font-size: 16px;
-            pointer-events: none; animation: slideRightFade 0.8s forwards; z-index: 2000;
-            text-shadow: 1px 1px 0 #000;
-        }
-        @keyframes slideRightFade {
-            0% { opacity: 1; transform: translate(0, 0); }
-            100% { opacity: 0; transform: translate(30px, -10px); }
-        }
-
-        /* MENUS & TOASTS */
         #game-toast {
             position: fixed; top: -150px; left: 50%; transform: translateX(-50%);
-            width: 70%; background: rgba(0, 0, 0, 0.95); 
-            border: 3px solid #ff4444; border-top: none;
-            border-bottom-left-radius: 15px; border-bottom-right-radius: 15px;
-            color: white; padding: 20px; text-align: center;
-            font-size: 24px; font-weight: bold; z-index: 10000;
-            transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            width: 70%; background: #111; border: 2px solid #a00; color: #dcdcdc;
+            padding: 20px; text-align: center; font-size: 20px; font-weight: bold; z-index: 11000;
+            transition: top 0.5s; font-family: 'Courier New', monospace; box-shadow: 0 5px 20px #000;
         }
-        #game-toast.show { top: 0; }
-        #game-toast.danger { border-color: #ff0000; color: #ffcccc; }
-        
-        #action-menu {
-            display: none; position: fixed; top: 50%; left: 50%; 
-            transform: translate(-50%, -50%); width: 300px; 
-            background: #2a2a2a; border: 4px solid #fff; border-radius: 12px; 
-            padding: 20px; text-align: center; color: white; 
-            z-index: 2000; box-shadow: 0 10px 50px rgba(0,0,0,1);
-        }
-        #menu-title { margin-top: 0; font-size: 24px; color: #ffd700; text-shadow: 2px 2px 0 #000; }
-        #menu-info { margin-bottom: 20px; color: #ccc; font-size: 14px; }
-        .action-btn-group { display: flex; flex-direction: column; gap: 12px; }
-        
-        #upgrade-btn, #sell-btn, #close-btn {
-            width: 100%; padding: 15px; border: none; border-radius: 8px;
-            font-size: 18px; font-weight: bold; cursor: pointer; color: white;
-            text-shadow: 1px 1px 0 rgba(0,0,0,0.5); position: relative;
-        }
-        #upgrade-btn { background: #28a745; box-shadow: 0 6px 0 #1e7e34; }
-        #upgrade-btn:active { top: 6px; box-shadow: none; }
-        #sell-btn { background: #d9534f; box-shadow: 0 6px 0 #c9302c; }
-        #sell-btn:active { top: 6px; box-shadow: none; }
-        #close-btn { background: #555; box-shadow: 0 6px 0 #333; margin-top: 10px; }
-        #close-btn:active { top: 6px; box-shadow: none; }
-        .disabled-btn { background-color: #444 !important; color: #888 !important; box-shadow: none !important; cursor: not-allowed; pointer-events: none; top: 6px; }
-
-        #build-menu {
-            display: none; position: fixed; top: 50%; left: 50%;
-            transform: translate(-50%, -50%); width: 400px; max-height: 80vh;
-            background: #2a2a2a; border: 4px solid #4a4a4a; border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.8); z-index: 2000;
-            overflow-y: auto; padding: 10px; scrollbar-width: none;
-        }
-        #build-menu::-webkit-scrollbar { display: none; }
-        .shop-card {
-            display: flex; align-items: center; background: #333;
-            margin-bottom: 10px; border-radius: 8px; border: 2px solid #555;
-            padding: 10px; height: 100px; transition: transform 0.1s;
-        }
-        .shop-card:hover { border-color: #ffd700; transform: scale(1.02); }
-        .shop-card.disabled { opacity: 0.6; filter: grayscale(100%); pointer-events: none; }
-        .card-info { flex: 1; display: flex; flex-direction: column; padding-right: 10px; }
-        .card-title { font-size: 18px; font-weight: bold; color: #fff; margin-bottom: 4px; }
-        .card-desc { font-size: 12px; color: #aaa; margin-bottom: 8px; }
-        .card-action { display: flex; align-items: center; gap: 10px; }
-        .card-price { font-size: 14px; color: #ffd700; font-weight: bold; }
-        .card-buy-btn { background: #28a745; border: none; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
-        .card-icon { font-size: 60px; line-height: 1; height: 90%; display: flex; align-items: center; }
-
-        .build-plus { animation: smoothPulse 3s infinite ease-in-out !important; }
-        @keyframes smoothPulse { 0% { opacity: 0.5; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0.5; transform: scale(0.8); } }
-        .monster-slam { animation: slam 0.2s ease-in-out !important; }
-        @keyframes slam { 0% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 20px); } 100% { transform: translate(-50%, 0); } }
-        .door-shake { animation: shakeDoor 0.3s ease-in-out; }
-        @keyframes shakeDoor { 0% { transform: translateX(-50%) rotate(0deg); } 25% { transform: translateX(-50%) rotate(-5deg); } 50% { transform: translateX(-50%) rotate(5deg); } 75% { transform: translateX(-50%) rotate(-5deg); } 100% { transform: translateX(-50%) rotate(0deg); } }
+        #game-toast.show { top: 20px; }
 
         .floating-group {
-            display: flex; gap: 8px; position: absolute; font-size: 1.2em; 
-            font-weight: bold; pointer-events: none; z-index: 150;
-            animation: drift-and-fade 1s ease-out forwards;
-            white-space: nowrap; text-shadow: 1px 1px 0 #000;
+            display: flex; gap: 8px; position: absolute; font-size: 1.2em; font-weight: bold; pointer-events: none;
+            z-index: 150; animation: drift-and-fade 1s ease-out forwards; white-space: nowrap; text-shadow: 1px 1px 0 #000;
+            transform: translateX(-50%); /* CENTER ALIGNMENT FIX */
         }
-        @keyframes drift-and-fade {
-            0% { transform: translate(0, 0); opacity: 1; }
-            100% { transform: translate(0, -30px); opacity: 0; }
-        }
+        @keyframes drift-and-fade { 0% { opacity: 1; margin-top: 0; } 100% { margin-top: -30px; opacity: 0; } }
         
         #ui-door-hp-container {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            width: 300px; height: 20px; background: #333;
-            border: 2px solid #fff; border-radius: 10px; overflow: hidden;
-            z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            width: 300px; height: 20px; background: #222; border: 2px solid #555;
+            z-index: 1000; overflow: hidden;
         }
-        #ui-door-hp-fill { height: 100%; width: 100%; background: #00ff00; transition: width 0.2s; }
+        #ui-door-hp-fill { height: 100%; width: 100%; background: #2e8b57; transition: width 0.2s; }
         #ui-door-hp-text {
-            position: absolute; width: 100%; text-align: center; top: 0;
-            line-height: 20px; color: white; font-size: 12px;
-            font-weight: bold; text-shadow: 1px 1px 0 #000;
+            position: absolute; width: 100%; text-align: center; top: 0; line-height: 20px; 
+            color: white; font-size: 12px; font-weight: bold; text-shadow: 1px 1px 0 #000;
+        }
+
+        .build-plus {
+            width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+            font-size: 30px; color: rgba(255,255,255,0.3); 
+            pointer-events: none; /* Allows clicks to pass through to grid-tile */
         }
     `;
     document.head.appendChild(styleFix);
@@ -580,12 +642,13 @@
     const BED_TILE_INDEX = (GRID_ROWS - 2) * GRID_COLS + Math.floor(GRID_COLS / 2); 
 
     const DOOR_LEVELS = [
-        { cost: 0, health: 300, color: '#8B4513', knob: '#FFD700', name: 'Wood Door' },
-        { cost: 100, health: 500, color: '#708090', knob: '#C0C0C0', name: 'Iron Door' },
-        { cost: 250, health: 800, color: '#C0C0C0', knob: '#FF4500', name: 'Steel Door' },
-        { cost: 500, health: 1200, color: '#FFD700', knob: '#00FFFF', name: 'Gold Door' },
-        { cost: 1000, health: 2000, color: '#9932CC', knob: '#FFFF00', name: 'Dark Matter' },
+        { cost: 0, health: 300, color: '#5D4037', knob: '#FFD700', name: 'Rotting Wood' },
+        { cost: 100, health: 500, color: '#37474F', knob: '#B0BEC5', name: 'Rusted Iron' },
+        { cost: 250, health: 800, color: '#455A64', knob: '#FF5722', name: 'Reinforced Steel' },
+        { cost: 500, health: 1200, color: '#FFC107', knob: '#00BCD4', name: 'Gilded Gate' },
+        { cost: 1000, health: 2000, color: '#4A148C', knob: '#EA80FC', name: 'Void Barrier' },
     ];
+
     const BED_LEVELS = [
         { cost: 0, goldGen: 100, powerGen: 1 }, 
         { cost: 200, goldGen: 200, powerGen: 2 },
@@ -631,21 +694,21 @@
     ];
     
     const STRUCTURES = {
-        door: { levels: DOOR_LEVELS, icon: '🚪' },
-        bed: { levels: BED_LEVELS, icon: '🛏️' },
-        generator: { levels: GENERATOR_LEVELS, icon: '☀️' },
-        turret: { levels: TURRET_LEVELS, icon: '🏹' },
-        laser: { levels: LASER_LEVELS, icon: '🪄' },
-        bank: { levels: BANK_LEVELS, icon: '🏦' },
-        repair: { levels: REPAIR_LEVELS, icon: '🔧' }
+        door: { levels: DOOR_LEVELS, icon: '🚪', needsEnergy: false },
+        bed: { levels: BED_LEVELS, icon: '🛏️', needsEnergy: false },
+        generator: { levels: GENERATOR_LEVELS, icon: '☀️', needsEnergy: false },
+        turret: { levels: TURRET_LEVELS, icon: '🏹', needsEnergy: false },
+        laser: { levels: LASER_LEVELS, icon: '🪄', needsEnergy: true },
+        bank: { levels: BANK_LEVELS, icon: '🏦', needsEnergy: true },
+        repair: { levels: REPAIR_LEVELS, icon: '🔧', needsEnergy: true }
     };
 
     const SHOP_ITEMS = [
         { type: 'generator', category: 'default', name: 'Solar Panel', desc: 'Generates Power.', icon: '☀️' },
         { type: 'turret', category: 'default', name: 'Crossbow', desc: 'Shoots monsters.', icon: '🏹' },
-        { type: 'laser', category: 'default', name: 'Laser Wand', desc: 'Charges up. High Damage. Costs Power/Blast.', icon: '🪄' },
-        { type: 'bank', category: 'electrical', name: 'Crypto Bank', desc: 'Buffs Turrets. Consumes Power!', icon: '🏦' },
-        { type: 'repair', category: 'electrical', name: 'Auto-Repair', desc: 'Heals door % of Current HP. Uses 2kW.', icon: '🔧' }
+        { type: 'laser', category: 'default', name: 'Laser Wand', desc: 'High Dmg. Costs Power.', icon: '🪄' },
+        { type: 'bank', category: 'electrical', name: 'Crypto Bank', desc: 'Buffs Turrets. Uses Power.', icon: '🏦' },
+        { type: 'repair', category: 'electrical', name: 'Auto-Repair', desc: 'Heals door. Uses 2kW.', icon: '🔧' }
     ];
 
     const MONSTER_LEVELS = [
@@ -661,21 +724,42 @@
     // --- 4. GAME STATE ---
     let gold = 100;
     let power = 100;
-    let isBuildMode = false; 
     let isGameOver = false; 
     let currentShopTab = 'default';
 
-    // Graph Data
-    const graphHistory = Array(30).fill(0); // Store last 30 ticks
+    // Simplified Modes
+    let upgradeMode = false;
+    let sellMode = false;
+    let modeDebounce = false;
+
+    let lastMonsterLevelTime = Date.now();
+    let monsterLevelTimerId = null;
+
+    const graphHistory = Array(30).fill(0); 
     
-    let door = { type: 'door', level: 1, hp: DOOR_LEVELS[0].health, maxHp: DOOR_LEVELS[0].health };
+    let door = { 
+        type: 'door', 
+        level: 1, 
+        hp: DOOR_LEVELS[0].health, 
+        maxHp: DOOR_LEVELS[0].health, 
+        needsEnergy: false,
+        nextCost: DOOR_LEVELS[1].cost 
+    };
+
     let monster = { level: 1, hp: 500, maxHp: 500, damage: 5, attackRate: 1500, isAttacking: true };
-    let currentTileTarget = null; 
+    
+    // Separation of concerns for clicking logic
+    let currentActionTarget = null; // Used for Upgrades/Selling (Object)
+    let buildTargetIndex = -1;      // Used for Building (Integer Index)
 
     // Initialize Grid with Bed
     let tiles = Array(TILE_COUNT).fill(null).map((_, index) => {
         if (index === BED_TILE_INDEX) {
-            return { type: 'bed', level: 1, goldEffect: 100, powerEffect: 1, cost: 0, isDisabled: false, element: null };
+            return { 
+                type: 'bed', level: 1, 
+                goldEffect: 100, powerEffect: 1, cost: 0, 
+                isDisabled: false, element: null, needsEnergy: false 
+            };
         }
         return null;
     });
@@ -686,9 +770,7 @@
     const uiKwReadout = document.getElementById('kw-readout');
     const graphCanvas = document.getElementById('energy-graph');
     const ctx = graphCanvas ? graphCanvas.getContext('2d') : null;
-
     const uiWave = document.getElementById('wave-count');
-    const monsterDamageDisplay = document.getElementById('monster-damage');
     const monsterWaveDisplay = document.getElementById('monster-wave');
     const doorElement = document.getElementById('door');
     const monsterElement = document.getElementById('monster');
@@ -708,8 +790,6 @@
         if(!toastElement) return;
         toastElement.textContent = msg;
         toastElement.className = ''; 
-        if(type === 'danger') toastElement.classList.add('danger');
-        if(type === 'success') toastElement.classList.add('success');
         toastElement.classList.add('show');
         setTimeout(() => toastElement.classList.remove('show'), 3000);
     }
@@ -731,10 +811,8 @@
         const rect = sourceElement.getBoundingClientRect();
         const group = document.createElement('div');
         group.className = 'floating-group';
-        
         const startX = rect.left + rect.width / 2;
         const startY = rect.top; 
-
         if (goldAmount > 0) {
             const gSpan = document.createElement('span');
             gSpan.textContent = `+${goldAmount}💰`;
@@ -747,11 +825,57 @@
             pSpan.style.color = '#00ffff';
             group.appendChild(pSpan);
         }
-        
         group.style.left = `${startX}px`; 
         group.style.top = `${startY}px`;
         document.body.appendChild(group); 
         setTimeout(() => group.remove(), 1000); 
+    }
+
+    function spawnUpgradeParticles(element) {
+        if(!element) return;
+        const rect = element.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        for(let i=0; i<3; i++) {
+            const p = document.createElement('div');
+            p.className = 'upgrade-particle';
+            p.textContent = '⬆';
+            // slight randomization
+            const offsetX = (Math.random() - 0.5) * 40;
+            p.style.left = (centerX + offsetX) + 'px';
+            p.style.top = centerY + 'px';
+            p.style.animationDelay = (i * 0.1) + 's';
+            document.body.appendChild(p);
+            setTimeout(() => p.remove(), 900);
+        }
+    }
+
+    function createParticle(x, y, text, color) {
+        const p = document.createElement('div');
+        p.className = 'repair-particle';
+        p.textContent = text;
+        p.style.color = color;
+        p.style.left = x + 'px';
+        p.style.top = y + 'px';
+        const rx = (Math.random() - 0.5) * 60 + 'px'; 
+        const ry = (Math.random() * -50 - 20) + 'px';
+        p.style.setProperty('--rx', rx);
+        p.style.setProperty('--ry', ry);
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 1000);
+    }
+
+    function spawnBankCoin(element) {
+        if (!element) return;
+        if (element.querySelectorAll('.bank-coin').length >= 2) return;
+        const coin = document.createElement('div');
+        coin.textContent = '🪙';
+        coin.className = 'bank-coin';
+        coin.style.left = (20 + Math.random() * 40) + '%';
+        coin.style.top = (30 + Math.random() * 30) + '%';
+        element.appendChild(coin);
+        setTimeout(() => coin.remove(), 2000);
     }
 
     function drawEnergyGraph(currentLoad) {
@@ -762,17 +886,13 @@
         const w = graphCanvas.width;
         const h = graphCanvas.height;
         ctx.clearRect(0, 0, w, h);
-
         const maxVal = Math.max(10, ...graphHistory);
-        
         ctx.beginPath();
-        ctx.strokeStyle = '#ff4444';
+        ctx.strokeStyle = '#a00';
         ctx.lineWidth = 2;
-        ctx.fillStyle = 'rgba(255, 68, 68, 0.2)';
-
+        ctx.fillStyle = 'rgba(150, 0, 0, 0.2)';
         const step = w / (graphHistory.length - 1);
         ctx.moveTo(0, h - (graphHistory[0] / maxVal) * h);
-
         for(let i = 1; i < graphHistory.length; i++) {
             const x = i * step;
             const y = h - (graphHistory[i] / maxVal) * h;
@@ -782,18 +902,9 @@
         ctx.lineTo(w, h);
         ctx.lineTo(0, h);
         ctx.fill();
-
-        ctx.beginPath();
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 1;
-        ctx.moveTo(0, h/2);
-        ctx.lineTo(w, h/2);
-        ctx.stroke();
     }
 
     // --- 7. GAME LOOPS ---
-    
-    // Resource Income Loop & Passive Regen & Repair Stations
     setInterval(() => {
         if (isGameOver) return;
         let goldIncome = 0; 
@@ -804,15 +915,21 @@
                 if(tile.goldEffect) goldIncome += tile.goldEffect;
                 if(tile.powerEffect) powerIncome += tile.powerEffect;
                 
-                // Active Repair Stations
                 if (tile.type === 'repair') {
                     const rStats = STRUCTURES.repair.levels[tile.level - 1];
                     const repairAmount = door.hp * rStats.healPct;
                     if (door.hp < door.maxHp && door.hp > 0) {
                         door.hp = Math.min(door.maxHp, door.hp + repairAmount);
                     }
+                    if (tile.element && doorElement) {
+                         const rect = doorElement.getBoundingClientRect();
+                         createParticle(rect.left + Math.random()*rect.width, rect.top + rect.height/2, "+", "#00ff00");
+                         createParticle(rect.left + Math.random()*rect.width, rect.top + rect.height/2, "+", "#00ff00");
+                    }
                 }
-
+                if (tile.type === 'bank' && tile.element) {
+                    if (Math.random() > 0.3) spawnBankCoin(tile.element);
+                }
                 if ((tile.goldEffect > 0 || tile.powerEffect > 0) && tile.element) {
                     displayFloatingResourceGroup(tile.element, tile.goldEffect, tile.powerEffect);
                 }
@@ -821,76 +938,108 @@
         gold += goldIncome;
         power += powerIncome;
 
-        // Passive Door Regen (2% per sec)
         if (door.hp < door.maxHp && door.hp > 0) {
             const passiveHeal = door.maxHp * 0.02;
             door.hp = Math.min(door.maxHp, door.hp + passiveHeal);
         }
-
         updateUI();
     }, 1000);
 
-    // Power Consumption Loop (Logic + Graph Update)
+    // MONSTER SCALING
+    function checkMonsterScaling() {
+        if (isGameOver) return;
+        const now = Date.now();
+        const timeThreshold = 30000 + Math.random() * 15000; 
+
+        if (now - lastMonsterLevelTime > timeThreshold) {
+            levelUpMonster(false);
+        }
+        monsterLevelTimerId = requestAnimationFrame(checkMonsterScaling);
+    }
+    monsterLevelTimerId = requestAnimationFrame(checkMonsterScaling);
+
+    function levelUpMonster(wasKilled) {
+        monster.level++;
+        lastMonsterLevelTime = Date.now(); 
+
+        if (wasKilled) {
+            gold += Math.round(monster.maxHp * 0.2);
+            showToast(`⚠️ BEAST SLAIN! EVOLVING TO LVL ${monster.level}`, 'neutral');
+            setTimeout(startWave, 2000);
+        } else {
+            let hp, dmg;
+            if (monster.level <= MONSTER_LEVELS.length) {
+                const stats = MONSTER_LEVELS[monster.level - 1];
+                hp = stats.hp;
+                dmg = stats.damage;
+            } else {
+                hp = Math.floor(monster.maxHp * 1.2);
+                dmg = Math.floor(monster.damage * 1.2);
+            }
+            monster.maxHp = hp;
+            monster.hp = hp;
+            monster.damage = dmg;
+
+            const speedMultiplier = Math.min(10, Math.pow(2, Math.floor(monster.level / 25)));
+            monster.attackRate = 1500 / speedMultiplier;
+
+            showToast(`⚠️ THE BEAST MUTATES! (LVL ${monster.level})`, 'neutral');
+            monsterElement.style.filter = "invert(1)";
+            setTimeout(() => monsterElement.style.filter = "", 200);
+            updateUI();
+        }
+    }
+
     setInterval(() => {
         if (isGameOver) return;
-        
         let totalDrain = 0;
-        let consumers = [];
-
         tiles.forEach(tile => {
             if (tile) {
-                if (tile.type === 'bank') {
-                    const stats = STRUCTURES.bank.levels[tile.level - 1];
+                if (tile.type === 'bank' || tile.type === 'repair') {
+                    const stats = STRUCTURES[tile.type].levels[tile.level - 1];
                     totalDrain += stats.powerDrain;
-                    consumers.push(tile);
-                } else if (tile.type === 'repair') {
-                    const stats = STRUCTURES.repair.levels[tile.level - 1];
-                    totalDrain += stats.powerDrain;
-                    consumers.push(tile);
                 }
             }
         });
-
-        // Jitter for realism
         const jitter = totalDrain > 0 ? (Math.random() * 0.5 - 0.25) : 0;
         const displayVal = Math.max(0, totalDrain + jitter);
         
-        // Update Graph & Text
         drawEnergyGraph(displayVal);
         if(uiKwReadout) uiKwReadout.textContent = displayVal.toFixed(1) + " kW";
 
+        let gridFailure = false;
         if (totalDrain > 0) {
             if (power >= totalDrain) {
                 power -= totalDrain;
                 animatePowerLoss(totalDrain);
-                consumers.forEach(t => {
-                    t.isDisabled = false;
-                    if(t.element) {
-                        t.element.classList.remove('shutdown');
-                        const warn = t.element.querySelector('.shutdown-icon');
-                        if(warn) warn.remove();
-                    }
-                });
             } else {
-                consumers.forEach(t => {
-                    t.isDisabled = true;
-                    if(t.element && !t.element.querySelector('.shutdown-icon')) {
-                        t.element.classList.add('shutdown');
-                        const icon = document.createElement('div');
-                        icon.className = 'shutdown-icon';
-                        icon.textContent = '⚠️';
-                        t.element.appendChild(icon);
-                    }
-                });
+                gridFailure = true;
             }
         }
+        tiles.forEach(tile => {
+            if (tile && tile.element) {
+                if (gridFailure && tile.needsEnergy) {
+                    tile.isDisabled = true;
+                    tile.element.classList.add('shutdown');
+                    if (!tile.element.querySelector('.shutdown-icon')) {
+                        tile.element.innerHTML += `<div class="shutdown-icon">⚠️</div>`;
+                    }
+                } else {
+                    tile.isDisabled = false;
+                    tile.element.classList.remove('shutdown');
+                    const warn = tile.element.querySelector('.shutdown-icon');
+                    if(warn) warn.remove();
+                }
+            }
+        });
         updateUI();
     }, 1000);
 
-    // --- 8. LOGIC (Combat, Build, Upgrade) ---
+    // --- 8. LOGIC ---
     function updateDoorVisuals() {
         if(!doorElement) return;
-        const currentStats = DOOR_LEVELS[door.level - 1] || DOOR_LEVELS[DOOR_LEVELS.length-1];
+        const visualIndex = Math.min(door.level - 1, DOOR_LEVELS.length - 1);
+        const currentStats = DOOR_LEVELS[visualIndex];
         doorElement.style.backgroundColor = currentStats.color;
         const knob = document.getElementById('door-knob');
         if (knob) knob.style.backgroundColor = currentStats.knob;
@@ -904,8 +1053,10 @@
                 setTimeout(() => monsterElement.classList.remove('monster-slam'), 200);
                 
                 door.hp -= monster.damage;
+                
+                // Door Shake Logic
                 doorElement.classList.remove('door-shake');
-                void doorElement.offsetWidth; 
+                void doorElement.offsetWidth; // Force Reflow
                 doorElement.classList.add('door-shake');
 
                 if (door.hp <= 0) { door.hp = 0; endGameSequence(); return; }
@@ -928,10 +1079,7 @@
             monster.isAttacking = false;
             clearInterval(monsterAttackInterval);
             monsterElement.style.opacity = 0;
-            gold += Math.round(monster.maxHp * 0.2); 
-            monster.level++;
-            showToast(`⚠️ WARNING: Monster Level ${monster.level} Incoming!`, 'danger');
-            setTimeout(startWave, 2000); 
+            levelUpMonster(true);
         }
         updateUI(); 
     }
@@ -942,7 +1090,7 @@
         clearInterval(monsterAttackInterval);
         turretIntervals.forEach(clearInterval); 
         doorElement.style.opacity = 0; 
-        showToast("❌ DOOR DESTROYED - GAME OVER", 'danger');
+        showToast("❌ DOOR BREACHED - SIGNAL LOST", 'neutral'); 
         
         const bedCol = BED_TILE_INDEX % GRID_COLS;
         const bedRow = Math.floor(BED_TILE_INDEX / GRID_COLS);
@@ -958,54 +1106,39 @@
 
         tiles.forEach((tile, index) => {
             if (!tile) return;
-
-            // --- STANDARD TURRET ---
             if (tile.type === 'turret') {
                 const stats = STRUCTURES.turret.levels[tile.level - 1];
-                // Aim
                 turretIntervals.push(setInterval(() => {
-                    if (tile.element && monster.isAttacking && !isGameOver) aimTurret(tile); 
+                    if (tile.element && monster.isAttacking && !isGameOver && !tile.isDisabled) aimTurret(tile); 
                 }, 30));
-                // Fire
                 turretIntervals.push(setInterval(() => {
-                    if (monster.isAttacking && !isGameOver) fireProjectile(index);
+                    if (monster.isAttacking && !isGameOver && !tile.isDisabled) fireProjectile(index);
                 }, stats.fireRate));
             } 
-            // --- LASER TURRET ---
             else if (tile.type === 'laser') {
                 const stats = STRUCTURES.laser.levels[tile.level - 1];
                 tile.lastFired = tile.lastFired || Date.now();
-                
-                // Logic Loop (Aim + Charge + Fire)
                 turretIntervals.push(setInterval(() => {
                     if (isGameOver || !monster.isAttacking) return;
-                    if (!tile.element) return;
-
-                    // 1. Aim
+                    if (!tile.element || tile.isDisabled) return;
                     aimTurret(tile);
-
-                    // 2. Charge Visuals
                     const now = Date.now();
                     const progress = Math.min(1, (now - tile.lastFired) / stats.chargeTime);
                     const glow = tile.element.querySelector('.laser-glow-tip');
                     if(glow) {
-                        glow.style.transform = `scale(${1 + (progress * 2)})`; // Grow up to 3x
+                        glow.style.transform = `scale(${1 + (progress * 2)})`; 
                         glow.style.opacity = progress;
                         glow.style.backgroundColor = progress > 0.9 ? stats.color : '#fff';
                     }
-
-                    // 3. Fire Logic
                     if (now - tile.lastFired >= stats.chargeTime) {
-                        // Check Power
                         if (power >= stats.powerCost) {
                             power -= stats.powerCost;
                             tile.lastFired = now;
                             animatePowerLoss(stats.powerCost);
                             fireLaserBeam(tile, stats);
-                            updateUI(); // Immediate UI update for power loss
+                            updateUI(); 
                         }
                     }
-
                 }, 50)); 
             }
         });
@@ -1018,12 +1151,7 @@
         const deltaX = mRect.left - tRect.left;
         const deltaY = mRect.top - tRect.top;
         tile.currentRotation = (Math.atan2(deltaY, deltaX) * (180/Math.PI)) + 45;
-        
-        // Target specific wrapper classes based on type
-        const rotator = tile.type === 'laser' 
-            ? tile.element.querySelector('.laser-wrapper') 
-            : tile.element.querySelector('.turret-bow');
-            
+        const rotator = tile.type === 'laser' ? tile.element.querySelector('.laser-wrapper') : tile.element.querySelector('.turret-bow');
         if (rotator) rotator.style.transform = `rotate(${tile.currentRotation}deg)`;
     }
 
@@ -1031,8 +1159,6 @@
         const tile = tiles[index];
         if (!tile.element) return;
         const stats = STRUCTURES.turret.levels[tile.level - 1];
-
-        // Bank Logic
         let bankBonus = 0;
         tiles.forEach(t => {
             if (t && t.type === 'bank' && !t.isDisabled) {
@@ -1040,33 +1166,26 @@
                 bankBonus += bankStats.multiplier;
             }
         });
-
         if (bankBonus > 0) {
             gold += bankBonus;
             displayFloatingResourceGroup(tile.element, bankBonus, 0);
         }
-
         const proj = document.createElement('div');
         proj.className = 'projectile';
         proj.textContent = '♦️'; 
-        
         const tRect = tile.element.getBoundingClientRect();
         const cRect = document.getElementById('game-container').getBoundingClientRect();
-        
         proj.style.left = `${tRect.left + tRect.width/2 - cRect.left}px`;
         proj.style.top = `${tRect.top + tRect.height/2 - cRect.top}px`;
         document.getElementById('game-container').appendChild(proj);
-        
         const mRect = monsterElement.getBoundingClientRect();
         const destX = mRect.left + mRect.width/2 - cRect.left;
         const destY = mRect.top + mRect.height/2 - cRect.top;
-        
         setTimeout(() => {
             proj.style.transform = `rotate(${Math.atan2(destY - parseFloat(proj.style.top), destX - parseFloat(proj.style.left))*180/Math.PI}deg)`;
             proj.style.left = `${destX}px`;
             proj.style.top = `${destY}px`;
         }, 10);
-        
         setTimeout(() => { damageMonster(stats.damage); proj.remove(); }, 500); 
     }
 
@@ -1074,111 +1193,114 @@
         const tRect = tile.element.getBoundingClientRect();
         const mRect = monsterElement.getBoundingClientRect();
         const gameRect = document.getElementById('game-container').getBoundingClientRect();
-
-        // Start point (center of tile)
         const x1 = (tRect.left + tRect.width/2) - gameRect.left;
         const y1 = (tRect.top + tRect.height/2) - gameRect.top;
-        // End point (center of monster)
         const x2 = (mRect.left + mRect.width/2) - gameRect.left;
         const y2 = (mRect.top + mRect.height/2) - gameRect.top;
-
-        // Math
         const length = Math.sqrt((x2-x1)**2 + (y2-y1)**2);
         const angle = Math.atan2(y2-y1, x2-x1) * (180/Math.PI);
-
-        // Create Beam
         const beam = document.createElement('div');
         beam.className = 'laser-beam-line';
         beam.style.width = `${length}px`;
-        beam.style.height = `${stats.width}px`; // Grows with level
+        beam.style.height = `${stats.width}px`; 
         beam.style.backgroundColor = stats.color;
-        beam.style.color = stats.color; // Used for shadow
+        beam.style.color = stats.color; 
         beam.style.left = `${x1}px`;
         beam.style.top = `${y1}px`;
-        beam.style.transform = `rotate(${angle}deg) translateY(-50%)`; // Centered vertically
-        
+        beam.style.transform = `rotate(${angle}deg) translateY(-50%)`; 
         document.getElementById('game-container').appendChild(beam);
-
-        // Flash Effect on Tile
         tile.element.style.filter = `brightness(2) drop-shadow(0 0 10px ${stats.color})`;
         setTimeout(() => tile.element.style.filter = '', 100);
-
         damageMonster(stats.damage);
-
-        // Fade out
         setTimeout(() => {
             beam.style.opacity = 0;
             setTimeout(() => beam.remove(), 400);
         }, 300);
     }
 
-    // --- 9. UI RENDERING ---
+    // --- 9. UI RENDERING & INTERACTION ---
     function updateUI() {
         if(uiGold) uiGold.textContent = Math.floor(gold).toLocaleString();
         if(uiPower) uiPower.textContent = Math.floor(power).toLocaleString();
         if(uiWave) uiWave.textContent = monster.level;
-        if(monsterDamageDisplay) monsterDamageDisplay.textContent = monster.damage;
         if(monsterWaveDisplay) monsterWaveDisplay.textContent = monster.level;
 
         const doorPercent = Math.max(0, (door.hp / door.maxHp) * 100);
         if(doorHpFill) {
             doorHpFill.style.width = `${doorPercent}%`;
-            doorHpFill.style.backgroundColor = doorPercent > 50 ? '#00ff00' : (doorPercent > 25 ? '#ffff00' : '#ff0000');
+            doorHpFill.style.backgroundColor = doorPercent > 50 ? '#2e8b57' : (doorPercent > 25 ? '#ffd700' : '#8b0000');
         }
-        if(doorHpText) doorHpText.textContent = `${DOOR_LEVELS[door.level-1].name} (${Math.round(door.hp)}/${door.maxHp})`;
+        const doorName = door.level <= DOOR_LEVELS.length ? DOOR_LEVELS[door.level-1].name : "Void Barrier (Ascended)";
+        if(doorHpText) doorHpText.textContent = `${doorName} (${Math.round(door.hp)}/${Math.round(door.maxHp)})`;
         if(monsterHpFill) monsterHpFill.style.width = `${Math.max(0, (monster.hp / monster.maxHp) * 100)}%`;
     }
 
     function switchTab(tabName) {
         currentShopTab = tabName;
-        if (isBuildMode) {
-            const menu = document.getElementById('build-menu');
-            const cards = menu.querySelectorAll('.shop-card');
-            cards.forEach(c => c.remove());
-            renderShopItems(menu);
-            const buttons = menu.querySelectorAll('.tab-btn');
-            buttons.forEach(btn => {
-                if(btn.textContent.toLowerCase().includes(tabName)) btn.classList.add('active');
-                else btn.classList.remove('active');
-            });
-        }
+        const menu = document.getElementById('build-menu');
+        const buttons = menu.querySelectorAll('.tab-btn');
+        buttons.forEach(btn => {
+            if(btn.textContent.toLowerCase().includes(tabName)) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+        renderShopItems(menu); 
     }
 
     function renderShopItems(container) {
-        const filteredItems = SHOP_ITEMS.filter(item => item.category === currentShopTab);
-        if (filteredItems.length === 0) {
-            const empty = document.createElement('div');
-            empty.className = 'shop-card disabled';
-            empty.innerHTML = `<div style="padding:20px; text-align:center; width:100%; color:#888;">Coming Soon</div>`;
-            container.appendChild(empty);
-            return;
-        }
+        const tabsDiv = container.querySelector('.tab-container');
+        const oldCards = container.querySelectorAll('.shop-card');
+        oldCards.forEach(c => c.remove());
 
+        const filteredItems = SHOP_ITEMS.filter(item => item.category === currentShopTab);
+        
         filteredItems.forEach(item => {
             const cost = STRUCTURES[item.type].levels[0].cost;
             const canAfford = gold >= cost;
             const card = document.createElement('div');
             card.className = 'shop-card' + (canAfford ? '' : ' disabled');
+            
             card.innerHTML = `
-                <div class="card-info"><div class="card-title">${item.name}</div>
-                <div class="card-desc">${item.desc}</div>
-                <div class="card-action"><div class="card-price">${cost} 💰</div>
-                <button class="card-buy-btn">Buy</button></div></div>
-                <div class="card-icon">${item.icon}</div>
+                <div class="shop-left">
+                    <div class="card-title">${item.name}</div>
+                    <div class="card-desc">${item.desc}</div>
+                    <div class="card-price">${cost} 💰</div>
+                </div>
+                <div class="shop-right">
+                    <div class="card-icon">${item.icon}</div>
+                    <button class="card-buy-btn">PURCHASE</button>
+                </div>
             `;
+            const btn = card.querySelector('.card-buy-btn');
+            
+            // --- FIX: Ensure click propagates correctly ---
+            btn.onclick = (e) => { 
+                e.stopPropagation(); 
+                if (canAfford) placeStructure(item.type); 
+            };
             card.onclick = () => { if (canAfford) placeStructure(item.type); };
-            container.appendChild(card);
+            
+            const closeBtn = container.querySelector('button:last-child'); 
+            container.insertBefore(card, closeBtn);
         });
+
+        if (filteredItems.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'shop-card disabled';
+            empty.innerHTML = `<div style="padding:10px; text-align:center; width:100%; color:#888;">No items available.</div>`;
+            const closeBtn = container.querySelector('button:last-child');
+            container.insertBefore(empty, closeBtn);
+        }
     }
 
     function showBuildMenu(tileIndex) {
-        currentTileTarget = tileIndex;
+        buildTargetIndex = tileIndex; // --- FIX: Explicitly Store Index ---
+        
         const menu = document.getElementById('build-menu');
         menu.innerHTML = ''; 
         
         const title = document.createElement('h2');
-        title.style.color = 'white'; title.style.textAlign = 'center'; title.style.marginTop = '0';
-        title.textContent = "Construction";
+        title.style.color = '#dcdcdc'; title.style.textAlign = 'center'; title.style.marginTop = '0';
+        title.textContent = "BUILDINGS";
         menu.appendChild(title);
 
         const tabsDiv = document.createElement('div');
@@ -1192,14 +1314,14 @@
         });
         menu.appendChild(tabsDiv);
 
-        renderShopItems(menu);
-
         const cBtn = document.createElement('button');
-        cBtn.textContent = "Cancel"; cBtn.style.width = "100%"; cBtn.style.padding = "10px";
-        cBtn.style.background = "#d9534f"; cBtn.style.border = "none"; cBtn.style.color = "white";
-        cBtn.style.borderRadius = "5px"; cBtn.style.marginTop = "10px"; cBtn.style.cursor = "pointer";
+        cBtn.textContent = "ABORT"; cBtn.style.width = "100%"; cBtn.style.padding = "10px";
+        cBtn.style.background = "#8b0000"; cBtn.style.border = "none"; cBtn.style.color = "white";
+        cBtn.style.borderRadius = "0"; cBtn.style.marginTop = "10px"; cBtn.style.cursor = "pointer";
         cBtn.onclick = closeMenu;
         menu.appendChild(cBtn);
+
+        renderShopItems(menu);
 
         if(document.getElementById('menu-overlay')) document.getElementById('menu-overlay').style.display = 'block';
         menu.style.display = 'block';
@@ -1207,97 +1329,172 @@
     }
 
     function placeStructure(type) {
+        // --- FIX: Ensure Index is Valid ---
+        if (buildTargetIndex === -1 || buildTargetIndex >= tiles.length) {
+            console.error("Invalid build index", buildTargetIndex);
+            return;
+        }
+
         const blueprint = STRUCTURES[type];
         const cost = blueprint.levels[0].cost; 
         if (gold >= cost) {
             gold -= cost;
             const stats = blueprint.levels[0];
-            tiles[currentTileTarget] = {
+            tiles[buildTargetIndex] = {
                 type: type, level: 1, cost: cost, 
                 goldEffect: stats.goldGen || 0, powerEffect: stats.powerGen || 0,
-                isDisabled: false, element: null 
+                isDisabled: false, element: null, 
+                needsEnergy: blueprint.needsEnergy 
             };
-            if(type === 'laser') tiles[currentTileTarget].lastFired = Date.now(); // Init timer
+            if(type === 'laser') tiles[buildTargetIndex].lastFired = Date.now(); 
 
-            closeMenu(); renderGrid(); updateTurretIntervals(); updateUI(); toggleBuildMode(); 
+            closeMenu(); renderGrid(); updateTurretIntervals(); updateUI(); 
         }
     }
 
     function showActionMenu(target, type, tileIndex = null) {
-        currentTileTarget = target; currentTileTarget.tileIndex = tileIndex; 
+        currentActionTarget = target; 
+        currentActionTarget.tileIndex = tileIndex; 
         const blueprint = STRUCTURES[type];
         
-        document.getElementById('menu-title').textContent = `${blueprint.icon} Level ${target.level}`;
+        document.getElementById('menu-title').textContent = `${blueprint.icon} LVL ${target.level}`;
         
-        const isMax = target.level >= blueprint.levels.length;
-        const nextStats = isMax ? null : blueprint.levels[target.level];
-        const cost = isMax ? 0 : nextStats.cost;
-        
-        let info = "";
-        if (type === 'bank') info = `Bonus: ${blueprint.levels[target.level-1].multiplier}x 💰 | Drain: ${blueprint.levels[target.level-1].powerDrain}kW`;
-        else if (type === 'repair') info = `Repair: ${Math.round(blueprint.levels[target.level-1].healPct * 100)}% Current HP | Drain: ${blueprint.levels[target.level-1].powerDrain}kW`;
-        else if (type === 'laser') info = `Dmg: ${blueprint.levels[target.level-1].damage} | Cost: ${blueprint.levels[target.level-1].powerCost}kW/Shot`;
-        else if (isMax) info = "MAX LEVEL";
-        else info = `Next: Level ${target.level+1}`;
+        let cost, info, isMax;
+
+        if (type === 'door') {
+            cost = target.nextCost;
+            info = `HP: ${target.maxHp} -> ${Math.floor(target.maxHp * 1.8)}`;
+            isMax = false; 
+        } else {
+            isMax = target.level >= blueprint.levels.length;
+            const nextStats = isMax ? null : blueprint.levels[target.level];
+            cost = isMax ? 0 : nextStats.cost;
+            
+            if (type === 'bank') info = `Yield: ${blueprint.levels[target.level-1].multiplier}x 💰`;
+            else if (type === 'repair') info = `Rate: ${Math.round(blueprint.levels[target.level-1].healPct * 100)}%`;
+            else if (type === 'laser') info = `Dmg: ${blueprint.levels[target.level-1].damage}`;
+            else if (isMax) info = "MAXIMUM EFFICIENCY";
+            else info = `Next: Level ${target.level+1}`;
+        }
 
         document.getElementById('menu-info').textContent = info;
 
-        upgradeBtn.textContent = isMax ? "Maxed" : `Upgrade (${cost}💰)`;
-        upgradeBtn.className = (isMax || gold < cost) ? 'disabled-btn' : '';
-        
+        upgradeBtn.textContent = isMax ? "MAXED" : `UPGRADE (-${cost}💰)`;
+        upgradeBtn.className = 'horror-btn' + ((isMax || gold < cost) ? ' disabled-btn' : '');
+        upgradeBtn.onclick = () => upgradeStructure(null);
+
         const isVital = type === 'bed' || type === 'door';
-        sellBtn.textContent = isVital ? 'Cannot Sell' : `Sell (${Math.floor(blueprint.levels[target.level-1].cost/2)}💰)`;
-        sellBtn.className = isVital ? 'disabled-btn' : '';
+        const dCost = (target.level <= blueprint.levels.length) ? blueprint.levels[target.level-1].cost : 0;
         
-        if(document.getElementById('menu-overlay')) document.getElementById('menu-overlay').style.display = 'flex';
+        sellBtn.textContent = isVital ? 'LOCKED' : `DISMANTLE (+${Math.floor(dCost/2)}💰)`;
+        sellBtn.className = 'horror-btn danger' + (isVital ? ' disabled-btn' : '');
+        sellBtn.onclick = () => sellStructure(null);
+        
+        if(document.getElementById('menu-overlay')) document.getElementById('menu-overlay').style.display = 'block';
         document.getElementById('action-menu').style.display = 'block';
         document.getElementById('build-menu').style.display = 'none';
     }
 
-    function upgradeStructure() {
-        const target = currentTileTarget;
+    function upgradeStructure(index) {
+        let target;
+        if (index !== null) target = tiles[index];
+        else target = currentActionTarget;
+
+        if (!target) return;
+
+        if (target.type === 'door') {
+            const cost = target.nextCost;
+            if (gold >= cost) {
+                gold -= cost;
+                target.level++;
+                target.maxHp = Math.floor(target.maxHp * 1.8);
+                target.hp = target.maxHp;
+                target.nextCost = Math.floor(target.nextCost * 2.5);
+                updateDoorVisuals();
+                if (index === null) closeMenu();
+                updateUI();
+                spawnUpgradeParticles(doorElement); // Spawn particles on door
+            }
+            return;
+        }
+
         const blueprint = STRUCTURES[target.type];
         if (target.level >= blueprint.levels.length) return;
         const nextStats = blueprint.levels[target.level];
+        
         if (gold >= nextStats.cost) {
             gold -= nextStats.cost;
             target.level++;
-            if (target.type === 'door') {
-                door.maxHp = nextStats.health; door.hp = door.maxHp; updateDoorVisuals();
-            } else {
-                Object.assign(target, { 
-                    goldEffect: nextStats.goldGen||0, powerEffect: nextStats.powerGen||0
-                });
-                if (target.type === 'turret' || target.type === 'laser') updateTurretIntervals();
-            }
-            closeMenu(); renderGrid(); updateUI();
+            Object.assign(target, { 
+                goldEffect: nextStats.goldGen||0, powerEffect: nextStats.powerGen||0
+            });
+            if (target.type === 'turret' || target.type === 'laser') updateTurretIntervals();
+            
+            // Trigger animation
+            if (target.element) spawnUpgradeParticles(target.element);
+
+            if (index === null) closeMenu(); 
+            renderGrid(); updateUI();
         }
     }
 
-    function sellStructure() {
-        if (currentTileTarget.type === 'bed' || currentTileTarget.type === 'door') return;
-        gold += Math.floor(STRUCTURES[currentTileTarget.type].levels[currentTileTarget.level-1].cost/2);
-        tiles[currentTileTarget.tileIndex] = null;
-        closeMenu(); renderGrid(); updateTurretIntervals(); updateUI();
+    function sellStructure(index) {
+        let target;
+        let tIndex;
+        if (index !== null) { target = tiles[index]; tIndex = index; }
+        else { target = currentActionTarget; tIndex = currentActionTarget.tileIndex; }
+
+        if (!target) return;
+        if (target.type === 'bed' || target.type === 'door') return;
+
+        // Visual fade out
+        if (target.element) target.element.classList.add('selling-anim');
+        
+        const blueprint = STRUCTURES[target.type];
+        const cost = (target.level <= blueprint.levels.length) ? blueprint.levels[target.level-1].cost : 0;
+        
+        if (index === null) closeMenu();
+
+        // Delay actual removal to let animation play
+        setTimeout(() => {
+            gold += Math.floor(cost/2);
+            tiles[tIndex] = null;
+            renderGrid(); updateTurretIntervals(); updateUI();
+        }, 300);
     }
 
     function closeMenu() {
         if(document.getElementById('menu-overlay')) document.getElementById('menu-overlay').style.display = 'none';
         document.getElementById('action-menu').style.display = 'none';
         document.getElementById('build-menu').style.display = 'none';
-        currentTileTarget = null;
-    }
-
-    function toggleBuildMode() {
-        isBuildMode = !isBuildMode; renderGrid(); 
-        if (isBuildMode) closeMenu(); 
+        currentActionTarget = null;
+        buildTargetIndex = -1; // Reset Build Target
     }
 
     function handleTileClick(index) {
         if (isGameOver) return;
+        if (modeDebounce) return;
+        modeDebounce = true;
+        setTimeout(() => modeDebounce = false, 200);
+
+        if (upgradeMode) {
+            if (tiles[index]) upgradeStructure(index);
+            return;
+        }
+        if (sellMode) {
+            if (tiles[index]) sellStructure(index);
+            return;
+        }
+
         closeMenu();
-        if (tiles[index]) showActionMenu(tiles[index], tiles[index].type, index);
-        else if (isBuildMode) showBuildMenu(index);
+        
+        if (tiles[index]) {
+            // Clicked existing structure
+            showActionMenu(tiles[index], tiles[index].type, index);
+        } else {
+            // --- FIX: ALWAYS ALLOW BUILDING ON EMPTY TILES ---
+            showBuildMenu(index);
+        }
     }
 
     function renderGrid() {
@@ -1306,18 +1503,21 @@
         tiles.forEach((tile, index) => {
             const div = document.createElement('div');
             div.className = 'grid-tile tooltip-container';
+            if (tile && upgradeMode) div.classList.add('upgrade-mode');
+            if (tile && sellMode) div.classList.add('sell-mode');
+            
             div.onclick = () => handleTileClick(index);
             
             if (tile) {
                 const bp = STRUCTURES[tile.type];
-                const nextCost = tile.level < bp.levels.length ? bp.levels[tile.level].cost : 999999;
-                if (gold >= nextCost) div.classList.add('upgrade-available');
-                
                 if (tile.isDisabled) {
                     div.classList.add('shutdown');
-                    div.innerHTML = `<div class="shutdown-icon">⚠️</div>`;
+                    if (!div.querySelector('.shutdown-icon')) {
+                        div.innerHTML += `<div class="shutdown-icon">⚠️</div>`;
+                    }
                 }
-
+                if (tile.type === 'generator') div.classList.add('solar-active');
+                
                 let icon = bp.icon;
                 if (tile.type === 'turret') {
                     icon = `<span class="turret-bow" style="display:inline-block; transition:none; transform: rotate(${tile.currentRotation||0}deg)">${bp.icon}</span>`;
@@ -1326,36 +1526,53 @@
                     icon = `<span class="wrench-anim">${bp.icon}</span>`;
                 }
                 else if (tile.type === 'laser') {
-                    // Wrapper for rotation + Glow element
                     icon = `
                     <div class="laser-wrapper" style="transform: rotate(${tile.currentRotation||0}deg)">
                         <div class="laser-icon">${bp.icon}</div>
                         <div class="laser-glow-tip"></div>
                     </div>`;
                 }
-                
                 div.innerHTML += `<span class="structure-icon">${icon}</span><span class="info-tooltip">${bp.icon} Lvl ${tile.level}</span>`;
                 tile.element = div;
-            }
-            if (isBuildMode) {
-                div.classList.add('grid-visual-on');
-                if (!tile) div.innerHTML = '<div class="build-plus">+</div>';
+            } else {
+                // --- FIX: ALWAYS SHOW + SIGN TO INDICATE CLICKABLE ---
+                div.innerHTML = '<div class="build-plus">+</div>';
             }
             gridElement.appendChild(div);
         });
     }
 
-    // --- 10. INITIALIZATION ---
-    document.addEventListener('keydown', e => { if(e.key==='e'||e.key==='E') toggleBuildMode(); });
+    document.addEventListener('keydown', e => {
+        const key = e.key.toLowerCase();
+        if (key === 'r') {
+            upgradeMode = !upgradeMode;
+            sellMode = false;
+            renderGrid();
+            if (upgradeMode) closeMenu();
+        }
+        if (key === 'q') {
+            sellMode = !sellMode;
+            upgradeMode = false;
+            renderGrid();
+            if (sellMode) closeMenu();
+        }
+    });
+
     if(doorElement) doorElement.onclick = () => showActionMenu(door, 'door');
-    if(upgradeBtn) upgradeBtn.onclick = upgradeStructure; 
-    if(sellBtn) sellBtn.onclick = sellStructure; 
     if(closeBtn) closeBtn.onclick = closeMenu;
 
     function startWave() {
         if (isGameOver) return;
         const stats = MONSTER_LEVELS[Math.min(monster.level-1, MONSTER_LEVELS.length-1)];
-        Object.assign(monster, { hp: stats.hp, maxHp: stats.hp, damage: stats.damage, attackRate: stats.attackRate, isAttacking: true });
+        let hp = stats.hp;
+        let dmg = stats.damage;
+
+        if (monster.level > MONSTER_LEVELS.length) {
+            hp = monster.maxHp; 
+            dmg = monster.damage; 
+        }
+
+        Object.assign(monster, { hp: hp, maxHp: hp, damage: dmg, isAttacking: true });
         
         monsterElement.style.opacity = 1;
         monsterElement.style.top = `calc(0px - 120px)`; 
@@ -1363,7 +1580,6 @@
         startMonsterAttack(); updateUI();
     }
 
-    // Initial Runs
     updateDoorVisuals(); 
     renderGrid(); 
     updateUI(); 
